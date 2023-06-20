@@ -82,7 +82,9 @@ test-suite codec-tests
   main-is:        codec-tests.hs
   ghc-options:    -threaded
   build-depends:
+    , bytestring
     , hspec
+    , QuickCheck
     , smtp-hs
 
 test-suite email-tests

@@ -1,7 +1,10 @@
 module Main where
 
 import Codec.MIME
+import Data.ByteString.Builder qualified as Builder
+import Data.ByteString.Lazy.Char8 qualified as BSL
 import Test.Hspec
+import Test.QuickCheck
 
 keepRight :: Either a b -> Maybe b
 keepRight = \case
@@ -34,3 +37,10 @@ main = hspec do
     it "should accept multiple parameters" do
       parseContentType "text/html;charset=UTF-8;me=you.-_"
         `shouldBe` Right (ContentType TextHtml [("charset", "UTF-8"), ("me", "you.-_")])
+
+  describe "quoted printable" do
+    it "should wrap lines properly" do
+      property @(String -> _) \string -> do
+        let qp = Builder.toLazyByteString (toQP True string)
+        BSL.splitWith (`elem` ['\r', '\n']) qp
+          `shouldSatisfy` all \line -> BSL.length line <= 78
