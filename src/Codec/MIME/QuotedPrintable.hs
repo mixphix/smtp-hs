@@ -1,9 +1,4 @@
-module Codec.MIME.QuotedPrintable (
-  QPPart (..),
-  qpPart,
-  qpPartToBuilder,
-  toQP,
-) where
+module Codec.MIME.QuotedPrintable (toQP) where
 
 import Codec.MIME.TextEncoding (utf8)
 import Control.Block (reduceL)
@@ -16,7 +11,7 @@ import Numeric (showHex)
 
 data QPPart
   = Printable Text
-  | Escaped Text
+  | Quoted Text
   | Tab
   | CarriageReturn
   | LineFeed
@@ -25,13 +20,13 @@ data QPPart
 
 qpPart :: Char -> QPPart
 qpPart char@(utf8 -> bits)
-  | char == '=' = Escaped escaped
+  | char == '=' = Quoted escaped
   | char == '\t' = Tab
   | char == '\r' = CarriageReturn
   | char == '\n' = LineFeed
   | char == ' ' = Space
   | pure 33 <= bits && bits <= pure 126 = Printable (Text.singleton char)
-  | otherwise = Escaped escaped
+  | otherwise = Quoted escaped
  where
   -- Lowercase hexadecimals are explicitly illegal
   -- https://www.rfc-editor.org/rfc/rfc2045#section-6.7
@@ -41,8 +36,8 @@ squashParts :: Bool -> [QPPart] -> [QPPart]
 squashParts isTextual = \case
   Printable t1 : Printable t2 : rest ->
     squashParts isTextual (Printable (t1 <> t2) : rest)
-  Escaped t1 : Escaped t2 : rest ->
-    squashParts isTextual (Escaped (t1 <> t2) : rest)
+  Quoted t1 : Quoted t2 : rest ->
+    squashParts isTextual (Quoted (t1 <> t2) : rest)
   (x : xs) -> x : squashParts isTextual xs
   [] -> []
 
@@ -55,7 +50,7 @@ qpPartToBuilder isTextual column = \case
          in ((Text.encodeUtf8Builder pref <> "=\r\n") <>)
               <$> qpPartToBuilder isTextual 0 (Printable suff)
     | otherwise -> (Text.length text, "=\r\n" <> Text.encodeUtf8Builder text)
-  Escaped bits
+  Quoted bits
     | column < (75 - 3 * length codes) -> (column + 3 * length codes, encoded)
     | otherwise -> (3 * length codes, "=\r\n" <> encoded)
    where
