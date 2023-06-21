@@ -4,7 +4,7 @@ import Control.Monad (liftM3)
 import Data.Bits (Bits (shiftR, (.&.)))
 import Data.Bool (bool)
 import Data.ByteString (ByteString)
-import Data.ByteString qualified as ByteString
+import Data.ByteString qualified as BS
 import Data.Char (isAlpha, isAscii, isControl, isDigit, ord)
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import Data.Text (Text)
@@ -57,14 +57,14 @@ rfc2822 = Text.foldl' (\acc c -> acc <> enc c) mempty
   enc :: Char -> ByteString
   enc (fromIntegral . ord -> c)
     | c `elem` specials = esc (hex c)
-    | 33 <= c && c <= 126 = ByteString.singleton c
+    | 33 <= c && c <= 126 = BS.singleton c
     | otherwise = esc (hex c)
    where
     esc :: Word8 -> ByteString
-    esc w = foldMap ByteString.singleton [61, shiftR w 4, w .&. 15]
+    esc w = foldMap BS.singleton [61, shiftR w 4, w .&. 15]
 
     hex :: Word8 -> Word8
     hex w = if w < 10 then w + 48 else w + 55
 
   specials :: [Word8]
-  specials = ByteString.unpack $ Text.encodeUtf8 "\"()<>[]:;@\\,.?_="
+  specials = BS.unpack (Text.encodeUtf8 "\"()<>[]:;@\\,.?_=")
