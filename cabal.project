@@ -1,4 +1,0 @@
-packages: .
-allow-newer:
-  , relude:base
-  , relude:ghc-prim
