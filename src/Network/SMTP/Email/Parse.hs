@@ -2,23 +2,24 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
-module Network.SMTP.Email.Parse (
-  Email,
-  Mailbox (..),
-  email,
-  mailbox,
-  mailboxes,
-  unsafeEmail,
-  domainPart,
-  emailText,
-  emailByteString,
-  localPart,
-  validEmail,
-  validMailbox,
-  validateEmail,
-  validateMailbox,
-  validateMailboxes,
-) where
+module Network.SMTP.Email.Parse
+  ( Email
+  , Mailbox (..)
+  , email
+  , mailbox
+  , mailboxes
+  , unsafeEmail
+  , domainPart
+  , emailText
+  , emailByteString
+  , localPart
+  , validEmail
+  , validMailbox
+  , validateEmail
+  , validateMailbox
+  , validateMailboxes
+  )
+where
 
 import Control.Applicative (Alternative (empty), liftA2)
 import Control.Monad (join, void, when)
@@ -35,21 +36,21 @@ import Data.Text.Encoding qualified as Text (encodeUtf8)
 import Data.Word (Word8)
 import Language.Haskell.TH (ExpQ, listE)
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
-import Text.Parsec (
-  ParsecT,
-  Stream,
-  char,
-  crlf,
-  endBy1,
-  eof,
-  many1,
-  oneOf,
-  parse,
-  sepEndBy1,
-  string,
-  tab,
-  (<?>),
- )
+import Text.Parsec
+  ( ParsecT
+  , Stream
+  , char
+  , crlf
+  , endBy1
+  , eof
+  , many1
+  , oneOf
+  , parse
+  , sepEndBy1
+  , string
+  , tab
+  , (<?>)
+  )
 import Text.Parsec qualified as Parse
 import Text.Parsec.Text (Parser)
 
@@ -161,11 +162,19 @@ a <|> b = Parse.choice [Parse.try a, Parse.try b]
 choice :: (Stream s m t) => [ParsecT s u m a] -> ParsecT s u m a
 choice ps = Parse.choice (Parse.try <$> ps)
 
+upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
+upto 0 _ = pure []
+upto n p = liftA2 (:) p $ upto (n - 1) p
+
 tmany :: ParsecT s u m Char -> ParsecT s u m Text
 tmany p = Text.pack <$> Parse.many p
 
 tmany1 :: (Stream s m t) => ParsecT s u m Char -> ParsecT s u m Text
 tmany1 p = Text.pack <$> Parse.many1 p
+
+tupto :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
+tupto 0 _ = pure ""
+tupto n p = fmap ((<>) . Text.singleton) p <*> tupto (n - 1) p
 
 ranges :: [[Word8]] -> Parser Char
 ranges rs = oneOf $ foldMap (map $ chr . fromIntegral) rs
@@ -390,6 +399,28 @@ obsPhrase =
       <|> (Text.singleton <$> char '.')
       <|> ("" <$ cfws)
 
+-- 3.5
+
+message :: Parser Text
+message =
+  (fields <|> obsFields)
+    <> Parse.option "" (fmap Text.singleton crlf <> body)
+
+body :: Parser Text
+body =
+  ( fmap fold (Parse.many (tupto 998 text <> fmap Text.singleton crlf))
+      <> tupto 998 text
+  )
+    <|> obsBody
+
+text :: Parser Char
+text = ranges [[1 .. 9], [11, 12], [14 .. 127]]
+
+-- 3.6
+
+fields :: Parser Text
+fields = undefined
+
 -- OBSOLETE
 
 -- 4.1
@@ -481,3 +512,9 @@ obsDomain =
 
 obsDtext :: Parser Text
 obsDtext = fmap Text.singleton obsNoWsCtl <|> quotedpair
+
+obsFields :: Parser Text
+obsFields = undefined
+
+obsBody :: Parser Text
+obsBody = undefined
