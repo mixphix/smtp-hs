@@ -1,7 +1,8 @@
-module Codec.MIME.ContentTransferEncoding (
-  ContentTransferEncoding (..),
-  contenttransferencoding,
-) where
+module Codec.MIME.ContentTransferEncoding
+  ( ContentTransferEncoding (..)
+  , contenttransferencoding
+  )
+where
 
 import Data.Text (Text)
 

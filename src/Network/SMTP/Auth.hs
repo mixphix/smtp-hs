@@ -1,10 +1,11 @@
-module Network.SMTP.Auth (
-  Username (..),
-  Password,
-  AuthType (..),
-  encodeLogin,
-  auth,
-) where
+module Network.SMTP.Auth
+  ( Username (..)
+  , Password
+  , AuthType (..)
+  , encodeLogin
+  , auth
+  )
+where
 
 import Crypto.Hash.Algorithms (MD5)
 import Crypto.MAC.HMAC (HMAC, hmac)

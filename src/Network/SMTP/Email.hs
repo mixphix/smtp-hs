@@ -1,19 +1,20 @@
-module Network.SMTP.Email (
-  module Network.SMTP.Email.Parse,
-  Mail (..),
-  renderMail,
-  newmessage,
-  subject,
-  body,
-  emailBodyImages,
-  to,
-  cc,
-  bcc,
-  attachPart,
-  attach,
-  attachFile,
-  attachImage,
-) where
+module Network.SMTP.Email
+  ( module Network.SMTP.Email.Parse
+  , Mail (..)
+  , renderMail
+  , newmessage
+  , subject
+  , body
+  , emailBodyImages
+  , to
+  , cc
+  , bcc
+  , attachPart
+  , attach
+  , attachFile
+  , attachImage
+  )
+where
 
 import Codec.MIME
 import Control.Monad.Random

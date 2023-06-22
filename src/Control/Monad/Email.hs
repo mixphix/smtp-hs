@@ -1,13 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module Control.Monad.Email (
-  ConnectionMethod (..),
-  SMTPSettings (..),
-  MonadSMTP (..),
-  HostName,
-  PortNumber,
-  module Network.SMTP.Email,
-) where
+module Control.Monad.Email
+  ( ConnectionMethod (..)
+  , SMTPSettings (..)
+  , MonadSMTP (..)
+  , HostName
+  , PortNumber
+  , module Network.SMTP.Email
+  )
+where
 
 import Control.Applicative (liftA2)
 import Control.Monad (void)
@@ -18,7 +19,7 @@ import Data.ByteString qualified as BS (toStrict)
 import Data.Foldable (for_)
 import Network.Connection (TLSSettings)
 import Network.SMTP
-import Network.SMTP.Auth
+import Network.SMTP.Auth (AuthType (LOGIN), Password, Username)
 import Network.SMTP.Command
 import Network.SMTP.Email
 import Network.Socket (HostName, PortNumber)

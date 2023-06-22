@@ -1,17 +1,18 @@
-module Codec.MIME.Boundary (
-  Boundary (..),
-) where
+module Codec.MIME.Boundary
+  ( Boundary (..)
+  )
+where
 
 import Control.Applicative (liftA2)
 import Data.Foldable (fold)
 import Data.Text (Text)
 import Data.Text qualified as Text
-import System.Random.Stateful (
-  Random,
-  StatefulGen,
-  Uniform (..),
-  UniformRange (..),
- )
+import System.Random.Stateful
+  ( Random
+  , StatefulGen
+  , Uniform (..)
+  , UniformRange (..)
+  )
 
 -- | Get a list of results by iterating a monadic action.
 applyNM :: (Monad m) => Int -> a -> (a -> m b) -> m [b] -> m [b]

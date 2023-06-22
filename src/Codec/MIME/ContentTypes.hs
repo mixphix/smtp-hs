@@ -1,21 +1,22 @@
-module Codec.MIME.ContentTypes (
-  ContentType (..),
-  contenttype,
-  parseContentType,
-  contentTypeP,
-  MediaType (..),
-  mediatype,
-  parseMediaType,
-  mediaTypeP,
-  Multipart (..),
-  multipart,
-  parseMultipart,
-  multipartP,
-  pattern ApplicationPdf,
-  pattern TextPlain,
-  pattern TextHtml,
-  pattern MultipartRelated,
-) where
+module Codec.MIME.ContentTypes
+  ( ContentType (..)
+  , contenttype
+  , parseContentType
+  , contentTypeP
+  , MediaType (..)
+  , mediatype
+  , parseMediaType
+  , mediaTypeP
+  , Multipart (..)
+  , multipart
+  , parseMultipart
+  , multipartP
+  , pattern ApplicationPdf
+  , pattern TextPlain
+  , pattern TextHtml
+  , pattern MultipartRelated
+  )
+where
 
 import Control.Applicative (Alternative (..))
 import Data.Foldable (fold)

@@ -1,11 +1,12 @@
-module Codec.MIME.Disposition (
-  Disposition (..),
-  disposition,
-  DispType (..),
-  disptype,
-  DispParam (..),
-  dispparam,
-) where
+module Codec.MIME.Disposition
+  ( Disposition (..)
+  , disposition
+  , DispType (..)
+  , disptype
+  , DispParam (..)
+  , dispparam
+  )
+where
 
 import Codec.MIME.TextEncoding (rfc5987)
 import Data.Text (Text)
