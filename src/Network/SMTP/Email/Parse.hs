@@ -10,6 +10,7 @@ module Network.SMTP.Email.Parse (
   mailboxes,
   unsafeEmail,
   domainPart,
+  emailText,
   emailByteString,
   localPart,
   validEmail,
@@ -61,7 +62,7 @@ data Mailbox = Mailbox
 -- Abstract data type representing an email address.
 --
 -- Use 'localPart' and 'domainPart' to extract those substrings,
--- or 'emailByteString' for the complete address in UTF-8.
+-- and 'emailText' or 'emailByteString' for the complete address.
 data Email = Email !Text !Text
 
 unsafeEmail :: Text -> Text -> Email
@@ -117,6 +118,9 @@ mailboxes =
     case validateMailboxes $ Text.pack s of
       Left err -> error $ "Invalid quasi-quoted mailbox list: " <> err
       Right e -> p e
+
+emailText :: Email -> Text
+emailText (Email l d) = l <> "@" <> d
 
 emailByteString :: Email -> ByteString
 emailByteString (Email l d) = Text.encodeUtf8 l <> "@" <> Text.encodeUtf8 d
