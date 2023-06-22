@@ -339,9 +339,12 @@ instance ToSinglePart Text where
 instance ToSinglePart Html where
   contentTypeFor :: Const ContentType Html
   contentTypeFor = Const (ContentType TextHtml [("charset", "utf-8")])
+
   dispositionFor :: Const (Maybe Disposition) Html
   dispositionFor = Const Nothing
+
   encodingFor :: Const (Maybe ContentTransferEncoding) Html
   encodingFor = Const (Just QuotedPrintable)
+
   makePartContent :: Html -> BSL.ByteString
   makePartContent = renderHtml

@@ -26,6 +26,7 @@ data AuthType
   deriving (Eq)
 
 instance Show AuthType where
+  show :: AuthType -> String
   show = \case
     PLAIN -> "PLAIN"
     LOGIN -> "LOGIN"
@@ -39,6 +40,7 @@ newtype Password = Password Text
   deriving (Eq)
 
 instance Show Password where
+  show :: Password -> String
   show (Password u) = replicate (Text.length u) '*'
 
 ascii :: Text -> ByteString
