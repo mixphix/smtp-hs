@@ -42,6 +42,7 @@ import Text.Parsec
   , Stream
   , char
   , crlf
+  , digit
   , endBy1
   , eof
   , many1
@@ -169,6 +170,10 @@ atLeast n p = liftA2 (:) p $ atLeast (n - 1) p
 upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
 upto n p = choice . reverse $ [0 .. n] <&> (`stimes` fmap pure p)
 
+btwn :: (Stream s m t) => Word -> Word -> ParsecT s u m a -> ParsecT s u m [a]
+btwn 0 n p = upto n p
+btwn m n p = liftA2 (:) p $ btwn (m - 1) (n - 1) p
+
 string :: (Stream s m Char) => Text -> ParsecT s u m Text
 string = fmap Text.pack . Parse.string . Text.unpack
 
@@ -180,10 +185,23 @@ tmany1 p = Text.pack <$> Parse.many1 p
 
 tatLeast :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
 tatLeast 0 p = tmany p
-tatLeast n p = liftA2 ((<>) . Text.singleton) p (tatLeast (n - 1) p)
+tatLeast n p = liftA2 Text.cons p (tatLeast (n - 1) p)
 
 tupto :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
 tupto n p = choice . reverse $ [0 .. n] <&> (`stimes` fmap Text.singleton p)
+
+tbtwn ::
+  (Stream s m Char) =>
+  Word ->
+  Word ->
+  ParsecT s u m Char ->
+  ParsecT s u m Text
+tbtwn 0 n p = tupto n p
+tbtwn m n p = liftA2 Text.cons p $ tbtwn (m - 1) (n - 1) p
+
+tcount :: (Stream s m Char) => Word -> ParsecT s u m Char -> ParsecT s u m Text
+tcount 0 _ = pure ""
+tcount n p = liftA2 Text.cons p (tcount (n - 1) p)
 
 ranges :: [[Word8]] -> Parser Char
 ranges rs = oneOf $ foldMap (map $ chr . fromIntegral) rs
@@ -297,6 +315,69 @@ unstructured :: Parser Text
 unstructured =
   (tmany (Parse.optionMaybe fws *> vchar) <* Parse.many wsp)
     <|> obsUnstruct
+
+-- 3.3
+
+dateTime :: Parser Text
+dateTime =
+  fold [Parse.option "" (dayOfWeek <> string ","), date, time]
+    <* Parse.optional cfws
+
+dayOfWeek :: Parser Text
+dayOfWeek = (Parse.optional fws *> dayName) <|> obsDayOfWeek
+
+dayName :: Parser Text
+dayName = choice $ map string ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+date :: Parser Text
+date = fold [day, month, year]
+
+day :: Parser Text
+day = (Parse.optional fws *> tbtwn 1 2 digit <* fws) <|> obsDay
+
+month :: Parser Text
+month =
+  choice . map string $
+    [ "Jan"
+    , "Feb"
+    , "Mar"
+    , "Apr"
+    , "May"
+    , "Jun"
+    , "Jul"
+    , "Aug"
+    , "Sep"
+    , "Oct"
+    , "Nov"
+    , "Dec"
+    ]
+
+year :: Parser Text
+year = (fws *> tatLeast 4 digit <* fws) <|> obsYear
+
+time :: Parser Text
+time = timeOfDay <> zone
+
+timeOfDay :: Parser Text
+timeOfDay =
+  fold
+    [ hour
+    , string ":"
+    , minute
+    , Parse.option "" $ string ":" <> second
+    ]
+
+hour :: Parser Text
+hour = tcount 2 digit <|> obsHour
+
+minute :: Parser Text
+minute = tcount 2 digit <|> obsMinute
+
+second :: Parser Text
+second = tcount 2 digit <|> obsSecond
+
+zone :: Parser Text
+zone = (fws *> liftA2 Text.cons (oneOf "+-") (tcount 4 digit)) <|> obsZone
 
 -- 3.4
 
@@ -627,3 +708,24 @@ obsFields = undefined
 
 obsBody :: Parser Text
 obsBody = undefined
+
+obsDayOfWeek :: Parser Text
+obsDayOfWeek = undefined
+
+obsDay :: Parser Text
+obsDay = undefined
+
+obsYear :: Parser Text
+obsYear = undefined
+
+obsHour :: Parser Text
+obsHour = undefined
+
+obsMinute :: Parser Text
+obsMinute = undefined
+
+obsSecond :: Parser Text
+obsSecond = undefined
+
+obsZone :: Parser Text
+obsZone = undefined
