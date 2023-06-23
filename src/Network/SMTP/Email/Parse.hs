@@ -21,7 +21,6 @@ module Network.SMTP.Email.Parse
 where
 
 import Control.Applicative (Alternative (empty), liftA2)
-import Control.Block
 import Control.Monad (join, void, when)
 import Data.Bifunctor (Bifunctor (first))
 import Data.ByteString (ByteString)
@@ -30,7 +29,6 @@ import Data.Foldable (fold)
 import Data.List.NonEmpty (NonEmpty ((:|)), toList)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
-import Data.Semigroup (stimes)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text (encodeUtf8)
@@ -164,15 +162,19 @@ choice :: (Stream s m t) => [ParsecT s u m a] -> ParsecT s u m a
 choice ps = Parse.choice (Parse.try <$> ps)
 
 atLeast :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
-atLeast 0 p = Parse.many p
-atLeast n p = liftA2 (:) p $ atLeast (n - 1) p
+atLeast n p = case n of
+  0 -> Parse.many p
+  _ -> liftA2 (:) p $ atLeast (n - 1) p
 
 upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
-upto n p = choice . reverse $ [0 .. n] <&> (`stimes` fmap pure p)
+upto n p = case n of
+  0 -> pure []
+  _ -> liftA2 (:) p (upto (n - 1) p) <|> pure []
 
 btwn :: (Stream s m t) => Word -> Word -> ParsecT s u m a -> ParsecT s u m [a]
-btwn 0 n p = upto n p
-btwn m n p = liftA2 (:) p $ btwn (m - 1) (n - 1) p
+btwn n m p = case n of
+  0 -> upto m p
+  _ -> liftA2 (:) p $ btwn (n - 1) (m - 1) p
 
 string :: (Stream s m Char) => Text -> ParsecT s u m Text
 string = fmap Text.pack . Parse.string . Text.unpack
@@ -184,11 +186,14 @@ tmany1 :: (Stream s m t) => ParsecT s u m Char -> ParsecT s u m Text
 tmany1 p = Text.pack <$> Parse.many1 p
 
 tatLeast :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
-tatLeast 0 p = tmany p
-tatLeast n p = liftA2 Text.cons p (tatLeast (n - 1) p)
+tatLeast n p = case n of
+  0 -> tmany p
+  _ -> liftA2 Text.cons p (tatLeast (n - 1) p)
 
 tupto :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
-tupto n p = choice . reverse $ [0 .. n] <&> (`stimes` fmap Text.singleton p)
+tupto n p = case n of
+  0 -> pure ""
+  _ -> liftA2 Text.cons p (tupto (n - 1) p) <|> pure ""
 
 tbtwn ::
   (Stream s m Char) =>
@@ -196,8 +201,9 @@ tbtwn ::
   Word ->
   ParsecT s u m Char ->
   ParsecT s u m Text
-tbtwn 0 n p = tupto n p
-tbtwn m n p = liftA2 Text.cons p $ tbtwn (m - 1) (n - 1) p
+tbtwn n m p = case n of
+  0 -> tupto m p
+  _ -> liftA2 Text.cons p $ tbtwn (n - 1) (m - 1) p
 
 tcount :: (Stream s m Char) => Word -> ParsecT s u m Char -> ParsecT s u m Text
 tcount 0 _ = pure ""
