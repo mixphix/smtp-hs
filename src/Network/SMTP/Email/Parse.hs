@@ -160,9 +160,13 @@ a <|> b = Parse.choice [Parse.try a, Parse.try b]
 choice :: (Stream s m t) => [ParsecT s u m a] -> ParsecT s u m a
 choice ps = Parse.choice (Parse.try <$> ps)
 
-upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
-upto 0 _ = pure []
-upto n p = liftA2 (:) p (upto (n - 1) p <|> pure [])
+atLeast :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
+atLeast 0 p = Parse.many p
+atLeast n p = liftA2 (:) p $ atLeast (n - 1) p
+
+-- upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
+-- upto 0 _ = pure []
+-- upto n p = liftA2 (:) p (upto (n - 1) p <|> pure [])
 
 string :: (Stream s m Char) => Text -> ParsecT s u m Text
 string = fmap Text.pack . Parse.string . Text.unpack
@@ -173,9 +177,13 @@ tmany p = Text.pack <$> Parse.many p
 tmany1 :: (Stream s m t) => ParsecT s u m Char -> ParsecT s u m Text
 tmany1 p = Text.pack <$> Parse.many1 p
 
-tupto :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
-tupto 0 _ = pure ""
-tupto n p = liftA2 ((<>) . Text.singleton) p (tupto (n - 1) p <|> pure "")
+tatLeast :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
+tatLeast 0 p = tmany p
+tatLeast n p = liftA2 ((<>) . Text.singleton) p (tatLeast (n - 1) p)
+
+-- tupto :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
+-- tupto 0 _ = pure ""
+-- tupto n p = liftA2 ((<>) . Text.singleton) p (tupto (n - 1) p <|> pure "")
 
 ranges :: [[Word8]] -> Parser Char
 ranges rs = oneOf $ foldMap (map $ chr . fromIntegral) rs
