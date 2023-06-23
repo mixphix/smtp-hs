@@ -46,7 +46,6 @@ import Text.Parsec
   , oneOf
   , parse
   , sepEndBy1
-  , string
   , tab
   , (<?>)
   )
@@ -164,6 +163,9 @@ choice ps = Parse.choice (Parse.try <$> ps)
 upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
 upto 0 _ = pure []
 upto n p = liftA2 (:) p $ upto (n - 1) p
+
+string :: (Stream s m Char) => Text -> ParsecT s u m Text
+string = fmap Text.pack . Parse.string . Text.unpack
 
 tmany :: ParsecT s u m Char -> ParsecT s u m Text
 tmany p = Text.pack <$> Parse.many p
