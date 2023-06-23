@@ -21,6 +21,7 @@ module Network.SMTP.Email.Parse
 where
 
 import Control.Applicative (Alternative (empty), liftA2)
+import Control.Block
 import Control.Monad (join, void, when)
 import Data.Bifunctor (Bifunctor (first))
 import Data.ByteString (ByteString)
@@ -29,6 +30,7 @@ import Data.Foldable (fold)
 import Data.List.NonEmpty (NonEmpty ((:|)), toList)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
+import Data.Semigroup (stimes)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text (encodeUtf8)
@@ -164,9 +166,8 @@ atLeast :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
 atLeast 0 p = Parse.many p
 atLeast n p = liftA2 (:) p $ atLeast (n - 1) p
 
--- upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
--- upto 0 _ = pure []
--- upto n p = liftA2 (:) p (upto (n - 1) p <|> pure [])
+upto :: (Stream s m t) => Word -> ParsecT s u m a -> ParsecT s u m [a]
+upto n p = choice . reverse $ [0 .. n] <&> (`stimes` fmap pure p)
 
 string :: (Stream s m Char) => Text -> ParsecT s u m Text
 string = fmap Text.pack . Parse.string . Text.unpack
@@ -181,9 +182,8 @@ tatLeast :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
 tatLeast 0 p = tmany p
 tatLeast n p = liftA2 ((<>) . Text.singleton) p (tatLeast (n - 1) p)
 
--- tupto :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
--- tupto 0 _ = pure ""
--- tupto n p = liftA2 ((<>) . Text.singleton) p (tupto (n - 1) p <|> pure "")
+tupto :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
+tupto n p = choice . reverse $ [0 .. n] <&> (`stimes` fmap Text.singleton p)
 
 ranges :: [[Word8]] -> Parser Char
 ranges rs = oneOf $ foldMap (map $ chr . fromIntegral) rs
