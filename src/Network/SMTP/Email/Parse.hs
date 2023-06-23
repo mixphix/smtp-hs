@@ -418,7 +418,107 @@ text = ranges [[1 .. 9], [11, 12], [14 .. 127]]
 -- 3.6
 
 fields :: Parser Text
-fields = undefined
+fields =
+  fmap fold $
+    ( fmap fold . Parse.many $
+        choice
+          [ liftA2 (:) trace (Parse.many optionalField)
+          , Parse.many $
+              choice
+                [ resentDate
+                , resentFrom
+                , resentSender
+                , resentTo
+                , resentCc
+                , recentBcc
+                , resentMsgId
+                ]
+          ]
+    )
+      <> Parse.many
+        ( choice
+            [ origDate
+            , from
+            , sender
+            , replyTo
+            , to
+            , cc
+            , bcc
+            , messageId
+            , inReplyTo
+            , references
+            , subject
+            , comments
+            , keywords
+            , optionalField
+            ]
+        )
+
+optionalField :: Parser Text
+optionalField = undefined
+
+trace :: Parser Text
+trace = undefined
+
+resentDate :: Parser Text
+resentDate = undefined
+
+resentFrom :: Parser Text
+resentFrom = undefined
+
+resentSender :: Parser Text
+resentSender = undefined
+
+resentTo :: Parser Text
+resentTo = undefined
+
+resentCc :: Parser Text
+resentCc = undefined
+
+recentBcc :: Parser Text
+recentBcc = undefined
+
+resentMsgId :: Parser Text
+resentMsgId = undefined
+
+origDate :: Parser Text
+origDate = undefined
+
+from :: Parser Text
+from = undefined
+
+sender :: Parser Text
+sender = undefined
+
+replyTo :: Parser Text
+replyTo = undefined
+
+to :: Parser Text
+to = undefined
+
+cc :: Parser Text
+cc = undefined
+
+bcc :: Parser Text
+bcc = undefined
+
+messageId :: Parser Text
+messageId = undefined
+
+inReplyTo :: Parser Text
+inReplyTo = undefined
+
+references :: Parser Text
+references = undefined
+
+subject :: Parser Text
+subject = undefined
+
+comments :: Parser Text
+comments = undefined
+
+keywords :: Parser Text
+keywords = undefined
 
 -- OBSOLETE
 
