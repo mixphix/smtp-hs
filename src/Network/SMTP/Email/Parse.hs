@@ -4,6 +4,7 @@
 module Network.SMTP.Email.Parse
   ( Email
   , Mailbox (..)
+  , mailboxText
   , email
   , mailbox
   , mailboxes
@@ -26,7 +27,8 @@ import Data.Bifunctor (Bifunctor (first))
 import Data.ByteString (ByteString)
 import Data.Char (chr)
 import Data.Foldable (fold)
-import Data.List.NonEmpty (NonEmpty ((:|)), toList)
+import Data.Functor ((<&>))
+import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty, toList)
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
 import Data.Text (Text)
@@ -57,6 +59,18 @@ data Mailbox = Mailbox
   { mailboxName :: Maybe Text
   , mailboxEmail :: Email
   }
+
+-- | Turn a 'Mailbox' value into a reparseable string.
+mailboxText :: Mailbox -> Text
+mailboxText Mailbox{..} = case mailboxName of
+  Nothing -> emailText mailboxEmail
+  Just mn ->
+    fold
+      [ mn
+      , " <"
+      , emailText mailboxEmail
+      , ">"
+      ]
 
 -- |
 -- Abstract data type representing an email address.
@@ -523,11 +537,18 @@ fields =
           , Parse.many $
               choice
                 [ resentDate
-                , resentFrom
-                , resentSender
-                , resentTo
-                , resentCc
-                , recentBcc
+                , resentFrom <&> \(m :| ms) ->
+                    "Resent-From:" <> mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+                , resentSender <&> \m -> "Resent-Sender:" <> mailboxText m
+                , resentTo <&> \x ->
+                    "Resent-To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                      mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+                , resentCc <&> \x ->
+                    "Resent-Cc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                      mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+                , resentBcc <&> \x ->
+                    "Resent-Bcc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                      mailboxText m <> foldMap ((", " <>) . mailboxText) ms
                 , resentMsgId
                 ]
           ]
@@ -535,12 +556,21 @@ fields =
       <> Parse.many
         ( choice
             [ origDate
-            , from
-            , sender
-            , replyTo
-            , to
-            , cc
-            , bcc
+            , from <&> \(m :| ms) ->
+                "From:" <> mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+            , sender <&> \m -> "Sender:" <> mailboxText m
+            , replyTo <&> \x ->
+                "Reply-To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+            , to <&> \x ->
+                "To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+            , cc <&> \x ->
+                "Cc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+            , bcc <&> \x ->
+                "Bcc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
             , messageId
             , inReplyTo
             , references
@@ -558,64 +588,88 @@ trace :: Parser Text
 trace = undefined
 
 resentDate :: Parser Text
-resentDate = undefined
+resentDate = string "Resent-Date:" <> dateTime <* crlf
 
-resentFrom :: Parser Text
-resentFrom = undefined
+resentFrom :: Parser (NonEmpty Mailbox)
+resentFrom = string "Resent-From:" *> mailboxList <* crlf
 
-resentSender :: Parser Text
-resentSender = undefined
+resentSender :: Parser Mailbox
+resentSender = string "Resent-Sender:" *> mailbox' <* crlf
 
-resentTo :: Parser Text
-resentTo = undefined
+resentTo :: Parser [Mailbox]
+resentTo = string "Resent-To:" *> addressList <* crlf
 
-resentCc :: Parser Text
-resentCc = undefined
+resentCc :: Parser [Mailbox]
+resentCc = string "Resent-Cc:" *> addressList <* crlf
 
-recentBcc :: Parser Text
-recentBcc = undefined
+resentBcc :: Parser [Mailbox]
+resentBcc = string "Resent-Bcc:" *> (addressList <|> ([] <$ cfws)) <* crlf
 
 resentMsgId :: Parser Text
-resentMsgId = undefined
+resentMsgId = string "Resent-Message-ID:" <> msgId <* crlf
 
 origDate :: Parser Text
-origDate = undefined
+origDate = string "Date:" <> dateTime <* crlf
 
-from :: Parser Text
-from = undefined
+from :: Parser (NonEmpty Mailbox)
+from = string "From:" *> mailboxList <* crlf
 
-sender :: Parser Text
-sender = undefined
+sender :: Parser Mailbox
+sender = string "Sender:" *> mailbox' <* crlf
 
-replyTo :: Parser Text
-replyTo = undefined
+replyTo :: Parser [Mailbox]
+replyTo = string "Reply-To:" *> addressList <* crlf
 
-to :: Parser Text
-to = undefined
+to :: Parser [Mailbox]
+to = string "To:" *> addressList <* crlf
 
-cc :: Parser Text
-cc = undefined
+cc :: Parser [Mailbox]
+cc = string "Cc:" *> addressList <* crlf
 
-bcc :: Parser Text
-bcc = undefined
+bcc :: Parser [Mailbox]
+bcc = string "Bcc:" *> (addressList <|> ([] <$ cfws)) <* crlf
 
 messageId :: Parser Text
-messageId = undefined
+messageId = string "Message-ID:" <> msgId <* crlf
 
 inReplyTo :: Parser Text
-inReplyTo = undefined
+inReplyTo = string "In-Reply-To:" <> fmap fold (Parse.many msgId) <* crlf
 
 references :: Parser Text
-references = undefined
+references = string "References:" <> fmap fold (Parse.many msgId) <* crlf
+
+msgId :: Parser Text
+msgId =
+  Parse.optional cfws
+    *> fmap
+      fold
+      ( sequenceA
+          [ string "<"
+          , idLeft
+          , string "@"
+          , idRight
+          , string ">"
+          ]
+      )
+    <* Parse.optional cfws
+
+idLeft :: Parser Text
+idLeft = dotAtomText <|> obsIdLeft
+
+idRight :: Parser Text
+idRight = dotAtomText <|> noFoldLiteral <|> obsIdRight
+
+noFoldLiteral :: Parser Text
+noFoldLiteral = string "[" <> fmap fold (Parse.many dtext) <> string "]"
 
 subject :: Parser Text
-subject = undefined
+subject = string "Subject:" <> unstructured <* crlf
 
 comments :: Parser Text
-comments = undefined
+comments = string "Comments:" <> unstructured <* crlf
 
 keywords :: Parser Text
-keywords = undefined
+keywords = string "Keywords:" <> fmap fold phrase <> fmap fold (Parse.many $ string "," <> fmap fold phrase) <* crlf
 
 -- OBSOLETE
 
@@ -735,3 +789,9 @@ obsSecond = undefined
 
 obsZone :: Parser Text
 obsZone = undefined
+
+obsIdLeft :: Parser Text
+obsIdLeft = undefined
+
+obsIdRight :: Parser Text
+obsIdRight = undefined
