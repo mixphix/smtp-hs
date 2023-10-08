@@ -6,8 +6,7 @@ where
 
 import Data.Text (Text)
 
--- |
--- The value of the "Content-Transfer-Encoding" header.
+-- | The value of the "Content-Transfer-Encoding" header.
 data ContentTransferEncoding
   = SevenBit
   | EightBit

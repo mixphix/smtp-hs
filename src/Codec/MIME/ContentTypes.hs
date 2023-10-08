@@ -93,50 +93,59 @@ parseMediaType = Parse.parse mediaTypeP ""
 
 mediaTypeP :: Parser MediaType
 mediaTypeP =
-  Parse.choice . map Parse.try $
-    [ applicationP
-    , audioP
-    , fontP
-    , imageP
-    , messageP
-    , modelP
-    , multipartP'
-    , textP
-    , videoP
-    ]
+  Parse.choice
+    . map Parse.try
+    $ [ applicationP
+      , audioP
+      , fontP
+      , imageP
+      , messageP
+      , modelP
+      , multipartP'
+      , textP
+      , videoP
+      ]
  where
   applicationP =
-    Application . map Text.pack
+    Application
+      . map Text.pack
       <$ Parse.string "application/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
   audioP =
-    Audio . map Text.pack
+    Audio
+      . map Text.pack
       <$ Parse.string "audio/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
   fontP =
-    Font . map Text.pack
+    Font
+      . map Text.pack
       <$ Parse.string "font/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
   imageP =
-    Image . map Text.pack
+    Image
+      . map Text.pack
       <$ Parse.string "image/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
   messageP =
-    Message . map Text.pack
+    Message
+      . map Text.pack
       <$ Parse.string "message/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
   modelP =
-    Model . map Text.pack
+    Model
+      . map Text.pack
       <$ Parse.string "model/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
   multipartP' =
     Multipart <$> (Parse.string "multipart/" *> multipartP)
   textP =
-    Text . map Text.pack
+    Text
+      . map Text.pack
       <$ Parse.string "text/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
   videoP =
-    Video . map Text.pack
+    Video
+      . map Text.pack
       <$ Parse.string "video/"
       <*> (many accepted `Parse.sepBy` Parse.try (Parse.char '+'))
 
@@ -184,21 +193,22 @@ parseMultipart = Parse.parse multipartP ""
 
 multipartP :: Parser Multipart
 multipartP =
-  Parse.choice . map Parse.try $
-    [ Alternative <$ Parse.string "alternative"
-    , Byteranges <$ Parse.string "byteranges"
-    , Digest <$ Parse.string "digest"
-    , Encrypted <$ Parse.string "encrypted"
-    , Example <$ Parse.string "example"
-    , FormData <$ Parse.string "form-data"
-    , Mixed <$ Parse.string "mixed"
-    , Multilingual <$ Parse.string "multilingual"
-    , Parallel <$ Parse.string "parallel"
-    , Related <$ Parse.string "related"
-    , Report <$ Parse.string "report"
-    , Signed <$ Parse.string "signed"
-    , VoiceMessage <$ Parse.string "voice-message"
-    ]
+  Parse.choice
+    . map Parse.try
+    $ [ Alternative <$ Parse.string "alternative"
+      , Byteranges <$ Parse.string "byteranges"
+      , Digest <$ Parse.string "digest"
+      , Encrypted <$ Parse.string "encrypted"
+      , Example <$ Parse.string "example"
+      , FormData <$ Parse.string "form-data"
+      , Mixed <$ Parse.string "mixed"
+      , Multilingual <$ Parse.string "multilingual"
+      , Parallel <$ Parse.string "parallel"
+      , Related <$ Parse.string "related"
+      , Report <$ Parse.string "report"
+      , Signed <$ Parse.string "signed"
+      , VoiceMessage <$ Parse.string "voice-message"
+      ]
 
 pattern ApplicationPdf :: MediaType
 pattern ApplicationPdf = Application ["pdf"]

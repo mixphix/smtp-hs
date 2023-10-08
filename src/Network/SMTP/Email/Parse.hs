@@ -21,7 +21,7 @@ module Network.SMTP.Email.Parse
   )
 where
 
-import Control.Applicative (Alternative (empty), liftA2)
+import Control.Applicative (Alternative (empty))
 import Control.Monad (join, void, when)
 import Data.Bifunctor (Bifunctor (first))
 import Data.ByteString (ByteString)
@@ -272,11 +272,11 @@ ccontent =
 
 comment :: Parser Text
 comment =
-  fmap Text.unwords $
-    char '('
-      *> Parse.many (Parse.optionMaybe fws *> ccontent)
-      <* fws
-      <* char ')'
+  fmap Text.unwords
+    $ char '('
+    *> Parse.many (Parse.optionMaybe fws *> ccontent)
+    <* fws
+    <* char ')'
 
 cfws :: Parser ()
 cfws =
@@ -296,10 +296,10 @@ dotAtomText = Text.intercalate "." <$> tmany1 atext `endBy1` string "."
 
 dotAtom :: Parser Text
 dotAtom =
-  fmap fold $
-    Parse.optionMaybe cfws
-      *> many1 dotAtomText
-      <* Parse.optionMaybe cfws
+  fmap fold
+    $ Parse.optionMaybe cfws
+    *> many1 dotAtomText
+    <* Parse.optionMaybe cfws
 
 -- 3.2.4
 
@@ -357,20 +357,21 @@ day = (Parse.optional fws *> tbtwn 1 2 digit <* fws) <|> obsDay
 
 month :: Parser Text
 month =
-  choice . map string $
-    [ "Jan"
-    , "Feb"
-    , "Mar"
-    , "Apr"
-    , "May"
-    , "Jun"
-    , "Jul"
-    , "Aug"
-    , "Sep"
-    , "Oct"
-    , "Nov"
-    , "Dec"
-    ]
+  choice
+    . map string
+    $ [ "Jan"
+      , "Feb"
+      , "Mar"
+      , "Apr"
+      , "May"
+      , "Jun"
+      , "Jul"
+      , "Aug"
+      , "Sep"
+      , "Oct"
+      , "Nov"
+      , "Dec"
+      ]
 
 year :: Parser Text
 year = (fws *> tatLeast 4 digit <* fws) <|> obsYear
@@ -455,15 +456,15 @@ addrSpec = do
   l <- localpart
 
   -- Maximum length of local-part is 64, per RFC3696
-  when (Text.length l > 64) $
-    fail "local-part of email is too long (more than 64 octets)"
+  when (Text.length l > 64)
+    $ fail "local-part of email is too long (more than 64 octets)"
 
   void (char '@') <?> "at sign"
   d <- domain
 
   -- Maximum length is 254, per Erratum 1690 on RFC3696
-  when (Text.length l + Text.length d > 253) $
-    fail "email address is too long (more than 254 octets)"
+  when (Text.length l + Text.length d > 253)
+    $ fail "email address is too long (more than 254 octets)"
 
   pure $ Email l d
 
@@ -491,23 +492,24 @@ domainlabel = do
 
 domainliteral :: Parser Text
 domainliteral =
-  fmap fold $
-    Parse.optionMaybe cfws
-      *> char '['
-      *> Parse.many (Parse.optionMaybe fws *> dtext)
-      <* Parse.optionMaybe fws
-      <* char ']'
-      <* Parse.optionMaybe cfws
+  fmap fold
+    $ Parse.optionMaybe cfws
+    *> char '['
+    *> Parse.many (Parse.optionMaybe fws *> dtext)
+    <* Parse.optionMaybe fws
+    <* char ']'
+    <* Parse.optionMaybe cfws
 
 dtext :: Parser Text
 dtext = fmap Text.singleton (ranges [[33 .. 90], [94 .. 126]]) <|> obsDtext
 
 obsPhrase :: Parser [Text]
 obsPhrase =
-  liftA2 (:) word . Parse.many $
-    word
-      <|> (Text.singleton <$> char '.')
-      <|> ("" <$ cfws)
+  liftA2 (:) word
+    . Parse.many
+    $ word
+    <|> (Text.singleton <$> char '.')
+    <|> ("" <$ cfws)
 
 -- 3.5
 
@@ -530,56 +532,57 @@ text = ranges [[1 .. 9], [11, 12], [14 .. 127]]
 
 fields :: Parser Text
 fields =
-  fmap fold $
-    ( fmap fold . Parse.many $
-        choice
-          [ liftA2 (:) trace (Parse.many optionalField)
-          , Parse.many $
-              choice
-                [ resentDate
-                , resentFrom <&> \(m :| ms) ->
-                    "Resent-From:" <> mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-                , resentSender <&> \m -> "Resent-Sender:" <> mailboxText m
-                , resentTo <&> \x ->
-                    "Resent-To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
-                      mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-                , resentCc <&> \x ->
-                    "Resent-Cc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
-                      mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-                , resentBcc <&> \x ->
-                    "Resent-Bcc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
-                      mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-                , resentMsgId
-                ]
-          ]
-    )
-      <> Parse.many
-        ( choice
-            [ origDate
-            , from <&> \(m :| ms) ->
-                "From:" <> mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-            , sender <&> \m -> "Sender:" <> mailboxText m
-            , replyTo <&> \x ->
-                "Reply-To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
-                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-            , to <&> \x ->
-                "To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
-                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-            , cc <&> \x ->
-                "Cc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
-                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-            , bcc <&> \x ->
-                "Bcc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
-                  mailboxText m <> foldMap ((", " <>) . mailboxText) ms
-            , messageId
-            , inReplyTo
-            , references
-            , subject
-            , comments
-            , keywords
-            , optionalField
+  fmap fold
+    $ ( fmap fold
+          . Parse.many
+          $ choice
+            [ liftA2 (:) trace (Parse.many optionalField)
+            , Parse.many
+                $ choice
+                  [ resentDate
+                  , resentFrom <&> \(m :| ms) ->
+                      "Resent-From:" <> mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+                  , resentSender <&> \m -> "Resent-Sender:" <> mailboxText m
+                  , resentTo <&> \x ->
+                      "Resent-To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                        mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+                  , resentCc <&> \x ->
+                      "Resent-Cc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                        mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+                  , resentBcc <&> \x ->
+                      "Resent-Bcc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                        mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+                  , resentMsgId
+                  ]
             ]
-        )
+      )
+    <> Parse.many
+      ( choice
+          [ origDate
+          , from <&> \(m :| ms) ->
+              "From:" <> mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+          , sender <&> \m -> "Sender:" <> mailboxText m
+          , replyTo <&> \x ->
+              "Reply-To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+          , to <&> \x ->
+              "To:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+          , cc <&> \x ->
+              "Cc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+          , bcc <&> \x ->
+              "Bcc:" <> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+                mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+          , messageId
+          , inReplyTo
+          , references
+          , subject
+          , comments
+          , keywords
+          , optionalField
+          ]
+      )
 
 optionalField :: Parser Text
 optionalField = undefined
@@ -669,7 +672,11 @@ comments :: Parser Text
 comments = string "Comments:" <> unstructured <* crlf
 
 keywords :: Parser Text
-keywords = string "Keywords:" <> fmap fold phrase <> fmap fold (Parse.many $ string "," <> fmap fold phrase) <* crlf
+keywords =
+  string "Keywords:"
+    <> fmap fold phrase
+    <> fmap fold (Parse.many $ string "," <> fmap fold phrase)
+    <* crlf
 
 -- OBSOLETE
 
@@ -685,17 +692,19 @@ obsUtext = char '\0' <|> obsNoWsCtl <|> vchar
 
 obsQP :: Parser Text
 obsQP =
-  liftA2 Text.cons (char '\\') $
-    Text.singleton <$> choice [nul, obsNoWsCtl, lf, cr]
+  liftA2 Text.cons (char '\\')
+    $ Text.singleton
+    <$> choice [nul, obsNoWsCtl, lf, cr]
 
 obsUnstruct :: Parser Text
 obsUnstruct =
-  fmap fold <$> Parse.many $
-    ( Parse.many lf
-        *> Parse.many cr
-        *> tmany (obsUtext <* Parse.many lf <* Parse.many cr)
-    )
-      <|> ("" <$ fws)
+  fmap fold
+    <$> Parse.many
+    $ ( Parse.many lf
+          *> Parse.many cr
+          *> tmany (obsUtext <* Parse.many lf <* Parse.many cr)
+      )
+    <|> ("" <$ fws)
 
 -- 4.2
 
@@ -721,10 +730,10 @@ obsDomainList = do
   void $ char '@'
   dom <- domain
   doms <-
-    Parse.many $
-      char ','
-        *> Parse.optionMaybe cfws
-        *> Parse.optionMaybe (char '@' *> domain)
+    Parse.many
+      $ char ','
+      *> Parse.optionMaybe cfws
+      *> Parse.optionMaybe (char '@' *> domain)
 
   pure (dom : catMaybes doms)
 
@@ -733,8 +742,9 @@ obsMboxList = do
   void . Parse.many $ Parse.optionMaybe cfws *> char ','
   mb <- mailbox'
   mbs <-
-    Parse.many $
-      char ',' *> Parse.optionMaybe (fmap Just mailbox' <|> (Nothing <$ cfws))
+    Parse.many
+      $ char ','
+      *> Parse.optionMaybe (fmap Just mailbox' <|> (Nothing <$ cfws))
   pure $ mb :| mapMaybe join mbs
 
 obsAddrList :: Parser [Mailbox]
@@ -742,8 +752,9 @@ obsAddrList = do
   void . Parse.many $ Parse.optionMaybe cfws *> char ','
   mb <- addresses
   mbs <-
-    Parse.many $
-      char ',' *> Parse.optionMaybe (fmap Just addresses <|> (Nothing <$ cfws))
+    Parse.many
+      $ char ','
+      *> Parse.optionMaybe (fmap Just addresses <|> (Nothing <$ cfws))
   pure $ mb <> concatMap (fromMaybe [] . join) mbs
 
 obsGroupList :: Parser ()
@@ -752,13 +763,15 @@ obsGroupList =
 
 obsLocalPart :: Parser Text
 obsLocalPart =
-  fmap fold . liftA2 (:) word $
-    Parse.many (liftA2 Text.cons (char '.') word)
+  fmap fold
+    . liftA2 (:) word
+    $ Parse.many (liftA2 Text.cons (char '.') word)
 
 obsDomain :: Parser Text
 obsDomain =
-  fmap fold . liftA2 (:) atom $
-    Parse.many (liftA2 Text.cons (char '.') atom)
+  fmap fold
+    . liftA2 (:) atom
+    $ Parse.many (liftA2 Text.cons (char '.') atom)
 
 obsDtext :: Parser Text
 obsDtext = fmap Text.singleton obsNoWsCtl <|> quotedpair

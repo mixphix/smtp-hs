@@ -18,21 +18,24 @@ utf8 :: Char -> NonEmpty Word8
 utf8 (ord -> n) =
   fromIntegral
     <$> if
-        | n <= 0x7f -> pure n
-        | n <= 0x7ff ->
-            0xc0 + shiftR n 6
-              :| [0x80 + n .&. 0x3f]
-        | n <= 0xffff ->
-            0xe0 + shiftR n 12
-              :| [ 0x80 + shiftR n 6 .&. 0x3f
-                 , 0x80 + n .&. 0x3f
-                 ]
-        | otherwise ->
-            0xf0 + shiftR n 18
-              :| [ 0x80 + shiftR n 12 .&. 0x3f
-                 , 0x80 + shiftR n 6 .&. 0x3f
-                 , 0x80 + n .&. 0x3f
-                 ]
+      | n <= 0x7f -> pure n
+      | n <= 0x7ff ->
+          0xc0
+            + shiftR n 6
+            :| [0x80 + n .&. 0x3f]
+      | n <= 0xffff ->
+          0xe0
+            + shiftR n 12
+            :| [ 0x80 + shiftR n 6 .&. 0x3f
+               , 0x80 + n .&. 0x3f
+               ]
+      | otherwise ->
+          0xf0
+            + shiftR n 18
+            :| [ 0x80 + shiftR n 12 .&. 0x3f
+               , 0x80 + shiftR n 6 .&. 0x3f
+               , 0x80 + n .&. 0x3f
+               ]
 
 -- | Like%20this
 rfc5987 :: Text -> Text

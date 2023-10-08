@@ -1,28 +1,56 @@
-module Codec.MIME (
-  module MIME,
-  Part (..),
-  Mult (..),
-  related,
-  PartContent (..),
-  PartBuilder (..),
-  SomePart (..),
-  somePart,
-  encodeEscapedUtf8,
-  buildHeaders,
-  partBuilder,
-  mixedParts,
-  ToSinglePart (..),
-  toSinglePart,
-  filePart,
-  imagePart,
-) where
+module Codec.MIME
+  ( module MIME
+  , Part (..)
+  , Mult (..)
+  , related
+  , PartContent (..)
+  , PartBuilder (..)
+  , SomePart (..)
+  , somePart
+  , encodeEscapedUtf8
+  , buildHeaders
+  , partBuilder
+  , mixedParts
+  , ToSinglePart (..)
+  , toSinglePart
+  , filePart
+  , imagePart
+  )
+where
 
-import Codec.MIME.Boundary as MIME
+import Codec.MIME.Boundary as MIME (Boundary (..))
 import Codec.MIME.ContentTransferEncoding as MIME
+  ( ContentTransferEncoding (..)
+  , contenttransferencoding
+  )
 import Codec.MIME.ContentTypes as MIME
+  ( ContentType (..)
+  , MediaType (..)
+  , Multipart (..)
+  , contentTypeP
+  , contenttype
+  , mediaTypeP
+  , mediatype
+  , multipart
+  , multipartP
+  , parseContentType
+  , parseMediaType
+  , parseMultipart
+  , pattern ApplicationPdf
+  , pattern MultipartRelated
+  , pattern TextHtml
+  , pattern TextPlain
+  )
 import Codec.MIME.Disposition as MIME
-import Codec.MIME.QuotedPrintable as MIME
-import Codec.MIME.TextEncoding as MIME
+  ( DispParam (..)
+  , DispType (..)
+  , Disposition (..)
+  , disposition
+  , dispparam
+  , disptype
+  )
+import Codec.MIME.QuotedPrintable as MIME (toQP)
+import Codec.MIME.TextEncoding as MIME (rfc2822, rfc5987, utf8)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Random (MonadRandom (getRandom))
 import Data.ByteString.Base64.Lazy qualified as B64L
@@ -103,8 +131,9 @@ encodeEscapedUtf8 t = fold ["=?utf-8?Q?", byteString $ rfc2822 t, "?="]
 buildHeaders :: (Text, Text) -> Builder
 buildHeaders (hname, hval) =
   fold
-    [ byteString . Text.encodeUtf8 $
-        Text.filter (\w -> w /= ':' && '!' <= w && w <= '~') hname
+    [ byteString
+        . Text.encodeUtf8
+        $ Text.filter (\w -> w /= ':' && '!' <= w && w <= '~') hname
     , ": "
     , if Text.all isAscii hval
         then byteString $ Text.encodeUtf8 hval
@@ -133,8 +162,8 @@ singleBuilder Part{partContent = Single bs, ..} = PartBuilder{..}
       $ partHeaders
   bsbuilder = case partEncoding of
     Just Base64 ->
-      foldMap ((<> "\r\n") . lazyByteString . B64L.encode) $
-        flip unfoldr bs \b ->
+      foldMap ((<> "\r\n") . lazyByteString . B64L.encode)
+        $ flip unfoldr bs \b ->
           if BSL.null b then Nothing else pure (BSL.splitAt 57 b)
     Just QuotedPrintable -> toQP True (chr . fromIntegral <$> BSL.unpack bs)
     Just Binary -> toQP False (chr . fromIntegral <$> BSL.unpack bs)
@@ -149,10 +178,7 @@ multipleBuilder (Boundary bdy) Part{partContent = Multiple ps} = PartBuilder{..}
   headers =
     [
       ( "Content-Type"
-      , contenttype $
-          ContentType
-            (Multipart Related)
-            [("boundary", bdy)]
+      , contenttype $ ContentType (Multipart Related) [("boundary", bdy)]
       )
     ]
   bsbuilder =
@@ -247,8 +273,8 @@ mixedParts ps = do
   let headers =
         [
           ( "Content-Type"
-          , contenttype $
-              ContentType (Multipart Mixed) [("boundary", bdy)]
+          , contenttype
+              $ ContentType (Multipart Mixed) [("boundary", bdy)]
           )
         ]
       bsbuilder =

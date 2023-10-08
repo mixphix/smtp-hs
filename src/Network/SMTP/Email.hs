@@ -17,7 +17,23 @@ module Network.SMTP.Email
 where
 
 import Codec.MIME
-import Control.Monad.Random
+  ( MediaType
+  , Multipart (Alternative)
+  , Part
+  , PartBuilder (PartBuilder, bsbuilder, headers)
+  , SomePart
+  , ToSinglePart
+  , buildHeaders
+  , encodeEscapedUtf8
+  , filePart
+  , imagePart
+  , mixedParts
+  , partBuilder
+  , related
+  , somePart
+  , toSinglePart
+  )
+import Control.Monad.Random (MonadIO, MonadRandom)
 import Data.ByteString.Builder (Builder, byteString, toLazyByteString)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Foldable (fold)
@@ -26,6 +42,7 @@ import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
+import Data.Traversable (for)
 import GHC.Generics (Generic)
 import Network.SMTP.Email.Parse
 import Text.Blaze.Html (Html)
@@ -77,14 +94,16 @@ renderMail m@Mail{..} =
     else case nonEmpty (sort mailParts) of
       Nothing -> pure $ Left UnspecifiedContent
       Just parts -> fmap Right $ do
-        PartBuilder{..} <- mixedParts =<< forM parts (partBuilder Alternative)
-        pure . toLazyByteString . fold $
-          [ mailboxHeaders m
-          , foldMap buildHeaders $ mailHeaders <> [("MIME-Version", "1.0")]
-          , foldMap buildHeaders headers
-          , "\n"
-          , bsbuilder
-          ]
+        PartBuilder{..} <- mixedParts =<< for parts (partBuilder Alternative)
+        pure
+          . toLazyByteString
+          . fold
+          $ [ mailboxHeaders m
+            , foldMap buildHeaders $ mailHeaders <> [("MIME-Version", "1.0")]
+            , foldMap buildHeaders headers
+            , "\n"
+            , bsbuilder
+            ]
 
 subject :: Text -> Mail -> Mail
 subject subj m = m{mailHeaders = ("Subject", subj) : mailHeaders m}

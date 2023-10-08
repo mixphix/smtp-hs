@@ -15,6 +15,17 @@ import Data.Text.Encoding qualified as Text (decodeUtf8, encodeUtf8)
 import Data.Word (Word8)
 import Network.BSD (getHostName)
 import Network.Connection
+  ( Connection
+  , ConnectionContext
+  , ConnectionParams (ConnectionParams)
+  , TLSSettings (TLSSettingsSimple)
+  , connectTo
+  , connectionClose
+  , connectionGetLine
+  , connectionPut
+  , connectionSetSecure
+  , initConnectionContext
+  )
 import Network.SMTP.Auth as Network.SMTP (AuthType (..), auth, encodeLogin)
 import Network.SMTP.Command as Network.SMTP (Command (..))
 import Network.Socket (HostName, PortNumber)
@@ -45,8 +56,9 @@ sendCommand = \case
   DATA bs -> do
     cputLine "DATA"
     code <- replyCode
-    unless (code == 354) . liftIO $
-      fail "This server is not configured to receive data."
+    unless (code == 354)
+      . liftIO
+      $ fail "This server is not configured to receive data."
     traverse_ (cputLine . padDot . stripCR) $ BS.split lf bs
     cputLine "."
     response
@@ -98,9 +110,9 @@ command ::
 command times cmd expect = do
   (code, msg) <- sendCommand cmd
   if
-      | code == expect -> pure (Just msg)
-      | times <= 0 -> pure Nothing
-      | otherwise -> command (pred times) cmd expect
+    | code == expect -> pure (Just msg)
+    | times <= 0 -> pure Nothing
+    | otherwise -> command (pred times) cmd expect
 
 commandOrQuit ::
   (MonadReader Connection m, MonadIO m) =>
@@ -111,12 +123,14 @@ commandOrQuit ::
 commandOrQuit times cmd expect = do
   (code, msg) <- sendCommand cmd
   if
-      | code == expect -> pure msg
-      | times > 1 -> commandOrQuit (pred times) cmd expect
-      | otherwise -> do
-          closeSMTP
-          liftIO . fail . fold $
-            [ "Unexpected reply to \""
+    | code == expect -> pure msg
+    | times > 1 -> commandOrQuit (pred times) cmd expect
+    | otherwise -> do
+        closeSMTP
+        liftIO
+          . fail
+          . fold
+          $ [ "Unexpected reply to \""
             , show cmd
             , "\": Expected "
             , show expect
@@ -175,9 +189,9 @@ connectSMTP' hostname mport mgethost mtls = do
   let port = fromMaybe 25 mport
       gethostname = fromMaybe getHostName mgethost
   connection <-
-    liftIO $
-      initConnectionContext
-        >>= (`connectTo` ConnectionParams hostname port mtls Nothing)
+    liftIO
+      $ initConnectionContext
+      >>= (`connectTo` ConnectionParams hostname port mtls Nothing)
   (connection,) <$> runReaderT (smtpconnect gethostname) connection
 
 connectSMTPSTARTTLS' ::
@@ -192,10 +206,12 @@ connectSMTPSTARTTLS' hostname mport mgethost mtls = do
       gethostname = fromMaybe getHostName mgethost
   context <- liftIO initConnectionContext
   connection <-
-    liftIO . connectTo context $
-      ConnectionParams hostname port Nothing Nothing
-  fmap (connection,) . flip runReaderT connection $
-    smtpconnectSTARTTLS gethostname context (fromMaybe defaulttls mtls)
+    liftIO
+      . connectTo context
+      $ ConnectionParams hostname port Nothing Nothing
+  fmap (connection,)
+    . flip runReaderT connection
+    $ smtpconnectSTARTTLS gethostname context (fromMaybe defaulttls mtls)
 
 connectSMTP :: (MonadIO m) => HostName -> m (Connection, [ByteString])
 connectSMTP hostname =

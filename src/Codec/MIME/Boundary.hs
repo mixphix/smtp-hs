@@ -3,7 +3,6 @@ module Codec.MIME.Boundary
   )
 where
 
-import Control.Applicative (liftA2)
 import Data.Foldable (fold)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -29,7 +28,10 @@ newtype Boundary = Boundary Text
 instance Uniform Boundary where
   uniformM :: (StatefulGen g m) => g -> m Boundary
   uniformM g =
-    Boundary . ("=_" <>) . Text.pack . map (ls !!)
+    Boundary
+      . ("=_" <>)
+      . Text.pack
+      . map (ls !!)
       <$> applyNM 10 g (uniformRM (0, l)) (pure [])
    where
     ls = fold [['A' .. 'Z'], ['a' .. 'z'], ['0' .. '9']]

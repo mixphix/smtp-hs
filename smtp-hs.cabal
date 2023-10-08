@@ -23,6 +23,7 @@ common shared
     DerivingStrategies
     LambdaCase
     MultiWayIf
+    OverloadedRecordDot
     OverloadedStrings
     PatternSynonyms
     QuasiQuotes

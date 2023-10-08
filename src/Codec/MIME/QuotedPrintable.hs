@@ -44,7 +44,8 @@ squashParts isTextual = \case
 qpPartToBuilder :: Bool -> Int -> QPPart -> (Int, Builder)
 qpPartToBuilder isTextual column = \case
   Printable text
-    | column < (74 - Text.length text) -> (column + Text.length text, Text.encodeUtf8Builder text)
+    | column < (74 - Text.length text) ->
+        (column + Text.length text, Text.encodeUtf8Builder text)
     | Text.length text > 74 ->
         let (pref, suff) = Text.splitAt (74 - column) text
          in ((Text.encodeUtf8Builder pref <> "=\r\n") <>)
