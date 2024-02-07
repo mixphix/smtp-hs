@@ -21,6 +21,7 @@ common shared
     DataKinds
     DefaultSignatures
     DerivingStrategies
+    DuplicateRecordFields
     LambdaCase
     MultiWayIf
     OverloadedRecordDot
@@ -49,6 +50,7 @@ library
     Codec.MIME.ContentTransferEncoding
     Codec.MIME.ContentTypes
     Codec.MIME.Disposition
+    Codec.MIME.Header
     Codec.MIME.QuotedPrintable
     Codec.MIME.TextEncoding
     Control.Monad.Email

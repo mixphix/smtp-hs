@@ -1,14 +1,11 @@
 module Codec.MIME.ContentTypes
   ( ContentType (..)
-  , contenttype
   , parseContentType
   , contentTypeP
   , MediaType (..)
-  , mediatype
   , parseMediaType
   , mediaTypeP
   , Multipart (..)
-  , multipart
   , parseMultipart
   , multipartP
   , pattern ApplicationPdf
@@ -18,6 +15,7 @@ module Codec.MIME.ContentTypes
   )
 where
 
+import Codec.MIME.Header (ToHeader (toHeader))
 import Control.Applicative (Alternative (..))
 import Data.Foldable (fold)
 import Data.Function (on)
@@ -34,11 +32,10 @@ data ContentType = ContentType
   }
   deriving (Eq, Show)
 
--- | Get the proper 'Text' value for a 'ContentType'.
-contenttype :: ContentType -> Text
-contenttype ContentType{..} =
-  mediatype mediaType <> flip foldMap contentParams \(name, val) ->
-    fold ["; ", name, "=\"", val, "\""]
+instance ToHeader ContentType where
+  toHeader ContentType{..} =
+    toHeader mediaType <> flip foldMap contentParams \(name, val) ->
+      fold ["; ", name, "=\"", val, "\""]
 
 parseContentType :: Text -> Either ParseError ContentType
 parseContentType = Parse.parse contentTypeP ""
@@ -75,18 +72,17 @@ data MediaType
   | Video [Text]
   deriving (Eq, Ord, Show)
 
--- | Get the proper 'Text' value for a 'MediaType'.
-mediatype :: MediaType -> Text
-mediatype = \case
-  Application ts -> "application/" <> Text.intercalate "+" ts
-  Audio ts -> "audio/" <> Text.intercalate "+" ts
-  Font ts -> "font/" <> Text.intercalate "+" ts
-  Image ts -> "image/" <> Text.intercalate "+" ts
-  Message ts -> "message/" <> Text.intercalate "+" ts
-  Model ts -> "model/" <> Text.intercalate "+" ts
-  Multipart m -> "multipart/" <> multipart m
-  Text ts -> "text/" <> Text.intercalate "+" ts
-  Video ts -> "video/" <> Text.intercalate "+" ts
+instance ToHeader MediaType where
+  toHeader = \case
+    Application ts -> "application/" <> Text.intercalate "+" ts
+    Audio ts -> "audio/" <> Text.intercalate "+" ts
+    Font ts -> "font/" <> Text.intercalate "+" ts
+    Image ts -> "image/" <> Text.intercalate "+" ts
+    Message ts -> "message/" <> Text.intercalate "+" ts
+    Model ts -> "model/" <> Text.intercalate "+" ts
+    Multipart m -> "multipart/" <> toHeader m
+    Text ts -> "text/" <> Text.intercalate "+" ts
+    Video ts -> "video/" <> Text.intercalate "+" ts
 
 parseMediaType :: Text -> Either ParseError MediaType
 parseMediaType = Parse.parse mediaTypeP ""
@@ -171,22 +167,21 @@ data Multipart
   | VoiceMessage
   deriving (Eq, Ord, Show)
 
--- | Get the proper 'Text' value for a 'Multipart' value.
-multipart :: Multipart -> Text
-multipart = \case
-  Alternative -> "alternative"
-  Byteranges -> "byteranges"
-  Digest -> "digest"
-  Encrypted -> "encrypted"
-  Example -> "example"
-  FormData -> "form-data"
-  Mixed -> "mixed"
-  Multilingual -> "multilingual"
-  Parallel -> "parallel"
-  Related -> "related"
-  Report -> "report"
-  Signed -> "signed"
-  VoiceMessage -> "voice-message"
+instance ToHeader Multipart where
+  toHeader = \case
+    Alternative -> "alternative"
+    Byteranges -> "byteranges"
+    Digest -> "digest"
+    Encrypted -> "encrypted"
+    Example -> "example"
+    FormData -> "form-data"
+    Mixed -> "mixed"
+    Multilingual -> "multilingual"
+    Parallel -> "parallel"
+    Related -> "related"
+    Report -> "report"
+    Signed -> "signed"
+    VoiceMessage -> "voice-message"
 
 parseMultipart :: Text -> Either ParseError Multipart
 parseMultipart = Parse.parse multipartP ""

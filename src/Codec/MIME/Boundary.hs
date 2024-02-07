@@ -1,8 +1,7 @@
-module Codec.MIME.Boundary
-  ( Boundary (..)
-  )
+module Codec.MIME.Boundary (Boundary (..))
 where
 
+import Codec.MIME.Header (ToHeader (toHeader))
 import Data.Foldable (fold)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -42,3 +41,5 @@ instance UniformRange Boundary where
   uniformRM _ = uniformM
 
 instance Random Boundary
+instance ToHeader Boundary where
+  toHeader (Boundary b) = b

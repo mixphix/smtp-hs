@@ -1,13 +1,7 @@
-module Codec.MIME.Disposition
-  ( Disposition (..)
-  , disposition
-  , DispType (..)
-  , disptype
-  , DispParam (..)
-  , dispparam
-  )
+module Codec.MIME.Disposition (Disposition (..), DispType (..), DispParam (..))
 where
 
+import Codec.MIME.Header (ToHeader (toHeader))
 import Codec.MIME.TextEncoding (rfc5987)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -21,10 +15,9 @@ data Disposition = Disposition
   }
   deriving (Eq)
 
--- | Get the proper 'Text' value for a 'Disposition'.
-disposition :: Disposition -> Text
-disposition Disposition{..} =
-  disptype dispType <> foldMap (("; " <>) . dispparam) dispParams
+instance ToHeader Disposition where
+  toHeader Disposition{..} =
+    toHeader dispType <> foldMap (("; " <>) . toHeader) dispParams
 
 -- |
 -- The disposition type for the content beneath the header.
@@ -36,11 +29,11 @@ data DispType
   deriving (Eq, Ord, Show)
 
 -- | Get the proper 'Text' value for a 'DispType'.
-disptype :: DispType -> Text
-disptype = \case
-  Inline -> "inline"
-  Attachment -> "attachment"
-  DispOther t -> t
+instance ToHeader DispType where
+  toHeader = \case
+    Inline -> "inline"
+    Attachment -> "attachment"
+    DispOther t -> t
 
 -- |
 -- Parameters to the content disposition of a section.
@@ -57,13 +50,13 @@ data DispParam
   deriving (Eq, Show)
 
 -- | Get the proper 'Text' value from a 'DispParam'.
-dispparam :: DispParam -> Text
-dispparam = \case
-  Name t -> "name=\"" <> t <> "\""
-  FilenameStar t -> "filename*=utf-8''" <> rfc5987 t
-  Filename t -> "filename=\"" <> t <> "\""
-  Created t -> "creation-date=\"" <> Text.pack (iso8601Show t) <> "\""
-  Modified t -> "modification-date=\"" <> Text.pack (iso8601Show t) <> "\""
-  Read t -> "read-date=\"" <> Text.pack (iso8601Show t) <> "\""
-  Size t -> "size=" <> Text.pack (show t)
-  Other t t' -> t <> "=" <> t'
+instance ToHeader DispParam where
+  toHeader = \case
+    Name t -> "name=\"" <> t <> "\""
+    FilenameStar t -> "filename*=utf-8''" <> rfc5987 t
+    Filename t -> "filename=\"" <> t <> "\""
+    Created t -> "creation-date=\"" <> Text.pack (iso8601Show t) <> "\""
+    Modified t -> "modification-date=\"" <> Text.pack (iso8601Show t) <> "\""
+    Read t -> "read-date=\"" <> Text.pack (iso8601Show t) <> "\""
+    Size t -> "size=" <> Text.pack (show t)
+    Other t t' -> t <> "=" <> t'

@@ -1,10 +1,6 @@
-module Codec.MIME.ContentTransferEncoding
-  ( ContentTransferEncoding (..)
-  , contenttransferencoding
-  )
-where
+module Codec.MIME.ContentTransferEncoding (ContentTransferEncoding (..)) where
 
-import Data.Text (Text)
+import Codec.MIME.Header (ToHeader (toHeader))
 
 -- | The value of the "Content-Transfer-Encoding" header.
 data ContentTransferEncoding
@@ -16,10 +12,10 @@ data ContentTransferEncoding
   deriving (Eq, Show)
 
 -- | Get the proper 'Text' value for a 'ContentTransferEncoding'.
-contenttransferencoding :: ContentTransferEncoding -> Text
-contenttransferencoding = \case
-  SevenBit -> "7bit"
-  EightBit -> "8bit"
-  Base64 -> "base64"
-  QuotedPrintable -> "quoted-printable"
-  Binary -> "binary"
+instance ToHeader ContentTransferEncoding where
+  toHeader = \case
+    SevenBit -> "7bit"
+    EightBit -> "8bit"
+    Base64 -> "base64"
+    QuotedPrintable -> "quoted-printable"
+    Binary -> "binary"

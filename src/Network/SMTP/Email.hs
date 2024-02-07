@@ -20,7 +20,7 @@ import Codec.MIME
   ( MediaType
   , Multipart (Alternative)
   , Part
-  , PartBuilder (PartBuilder, bsbuilder, headers)
+  , PartBuilder (..)
   , SomePart
   , ToSinglePart
   , buildHeaders
@@ -94,15 +94,15 @@ renderMail m@Mail{..} =
     else case nonEmpty (sort mailParts) of
       Nothing -> pure $ Left UnspecifiedContent
       Just parts -> fmap Right $ do
-        PartBuilder{..} <- mixedParts =<< for parts (partBuilder Alternative)
+        pb <- mixedParts =<< for parts (partBuilder Alternative)
         pure
           . toLazyByteString
           . fold
           $ [ mailboxHeaders m
             , foldMap buildHeaders $ mailHeaders <> [("MIME-Version", "1.0")]
-            , foldMap buildHeaders headers
+            , foldMap buildHeaders pb.headers
             , "\n"
-            , bsbuilder
+            , pb.builder
             ]
 
 subject :: Text -> Mail -> Mail
