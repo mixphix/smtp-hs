@@ -3,7 +3,7 @@ module Codec.MIME.QuotedPrintable (toQP) where
 import Codec.MIME.TextEncoding (utf8)
 import Control.Block (reduceL)
 import Data.ByteString.Builder (Builder)
-import Data.Char (toUpper)
+import Data.Char (ord, toUpper)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
@@ -25,12 +25,13 @@ qpPart char@(utf8 -> bits)
   | char == '\r' = CarriageReturn
   | char == '\n' = LineFeed
   | char == ' ' = Space
-  | pure 33 <= bits && bits <= pure 126 = Printable (Text.singleton char)
-  | otherwise = Quoted escaped
+  | otherwise = case bits of
+      [single] | 33 <= single && single <= 126 -> Printable (Text.singleton char)
+      _ -> Quoted escaped
  where
   -- Lowercase hexadecimals are explicitly illegal
   -- https://www.rfc-editor.org/rfc/rfc2045#section-6.7
-  escaped = Text.pack $ toUpper <$> foldMap (`showHex` "") bits
+  escaped = Text.pack $ toUpper <$> showHex (ord char) ""
 
 squashParts :: Bool -> [QPPart] -> [QPPart]
 squashParts isTextual = \case
