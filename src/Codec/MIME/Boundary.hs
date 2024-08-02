@@ -2,6 +2,7 @@ module Codec.MIME.Boundary (Boundary (..))
 where
 
 import Codec.MIME.Header (ToHeader (toHeader))
+import Control.Monad (liftM2)
 import Data.Foldable (fold)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -16,7 +17,7 @@ import System.Random.Stateful
 applyNM :: (Monad m) => Int -> a -> (a -> m b) -> m [b] -> m [b]
 applyNM n a f = case n of
   0 -> id
-  _ -> applyNM (pred n) a f . liftA2 (:) (f a)
+  _ -> applyNM (pred n) a f . liftM2 (:) (f a)
 
 -- |
 -- A wrapper around 'Text' such that the 'Uniform' instance generates
