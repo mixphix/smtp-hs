@@ -45,31 +45,32 @@ squashParts isTextual = \case
 qpPartToBuilder :: Bool -> Int -> QPPart -> (Int, Builder)
 qpPartToBuilder isTextual column = \case
   Printable text
-    | column < (74 - Text.length text) ->
+    | column < (76 - Text.length text) ->
         (column + Text.length text, Text.encodeUtf8Builder text)
-    | Text.length text > 74 ->
-        let (pref, suff) = Text.splitAt (74 - column) text
+    | Text.length text > 75 ->
+        let (pref, suff) = Text.splitAt (75 - column) text
          in ((Text.encodeUtf8Builder pref <> "=\r\n") <>)
               <$> qpPartToBuilder isTextual 0 (Printable suff)
-    | otherwise -> (Text.length text, "=\r\n" <> Text.encodeUtf8Builder text)
+    | otherwise ->
+        let (pref, suff) = Text.splitAt (75 - column) text
+         in (Text.length suff, Text.encodeUtf8Builder pref <> "=\r\n" <> Text.encodeUtf8Builder suff)
   Quoted bits
-    | column < (75 - 3 * length codes) -> (column + 3 * length codes, encoded)
+    | column < (76 - 3 * length codes) -> (column + 3 * length codes, encoded)
     | otherwise -> (3 * length codes, "=\r\n" <> encoded)
    where
     encoded = foldMap (("=" <>) . Text.encodeUtf8Builder) codes
     codes = Text.chunksOf 2 bits
   Tab
-    | column < 73 -> (column + 3, "=09")
+    | column < 74 -> (column + 3, "=09")
     | otherwise -> (3, "=\r\n=09")
   CarriageReturn
     | isTextual && column < 75 -> (column + 1, "\r")
     | isTextual -> (0, "\r")
-    | not isTextual && column < 72 -> (column + 3, "=0D")
+    | not isTextual && column < 73 -> (column + 3, "=0D")
     | otherwise -> (3, "=\r\n=0D")
   LineFeed
-    | isTextual && column < 75 -> (0, "\n")
     | isTextual -> (0, "\n")
-    | not isTextual && column < 72 -> (column + 3, "=0A")
+    | not isTextual && column < 73 -> (column + 3, "=0A")
     | otherwise -> (3, "=\r\n=0A")
   Space
     | column < 75 -> (column + 1, " ")
