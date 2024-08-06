@@ -1,8 +1,8 @@
 module Network.SMTP.Email
   ( module Network.SMTP.Email.Parse
   , Mail (..)
+  , blankMail
   , renderMail
-  , newmessage
   , subject
   , body
   , emailBodyImages
@@ -18,7 +18,7 @@ where
 
 import Codec.MIME
   ( MediaType
-  , Multipart (Alternative)
+  , Multipart (..)
   , Part
   , PartBuilder (..)
   , SomePart
@@ -66,8 +66,8 @@ data Mail = Mail
   }
   deriving (Generic)
 
-newmessage :: Mailbox -> Mail
-newmessage from = Mail from [] [] [] [] []
+blankMail :: Mailbox -> Mail
+blankMail from = Mail from [] [] [] [] []
 
 mailboxHeaders :: Mail -> Builder
 mailboxHeaders Mail{..} =
@@ -78,6 +78,7 @@ mailboxHeaders Mail{..} =
     , map ("Cc",) mailCc
     , map ("Bcc",) mailBcc
     ]
+    <> foldMap buildHeaders (mailHeaders <> [("MIME-Version", "1.0")])
 
 data MailRenderError
   = UnspecifiedTarget
@@ -88,18 +89,20 @@ renderMail ::
   (MonadRandom m) =>
   Mail ->
   m (Either MailRenderError BSL.ByteString)
-renderMail m@Mail{..} =
-  if null mailTo
+renderMail m =
+  if null m.mailTo
     then pure $ Left UnspecifiedTarget
-    else case nonEmpty (sort mailParts) of
+    else case nonEmpty (sort m.mailParts) of
       Nothing -> pure $ Left UnspecifiedContent
       Just parts -> fmap Right $ do
-        pb <- mixedParts =<< for parts (partBuilder Alternative)
+        pb <-
+          for parts (partBuilder Related) >>= \case
+            pb :| [] -> pure pb
+            pbs -> mixedParts pbs
         pure
           . toLazyByteString
           . fold
           $ [ mailboxHeaders m
-            , foldMap buildHeaders $ mailHeaders <> [("MIME-Version", "1.0")]
             , foldMap buildHeaders pb.headers
             , "\n"
             , pb.builder
@@ -126,7 +129,7 @@ bcc :: [Mailbox] -> Mail -> Mail
 bcc mbxs m = m{mailCc = mbxs <> mailBcc m}
 
 attachPart :: Part mult -> Mail -> Mail
-attachPart p m = m{mailParts = mailParts m ++ [pure $ somePart p]}
+attachPart p m = m{mailParts = mailParts m <> [pure (somePart p)]}
 
 attach :: (ToSinglePart part) => part -> Mail -> Mail
 attach p = attachPart (toSinglePart p)

@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Codec.MIME
   ( module MIME
   , Part (..)
@@ -203,8 +205,7 @@ multipleBuilder b p = PartBuilder{..}
       , toHeader $ ContentType MultipartRelated [("boundary", toHeader b)]
       )
     ]
-  builder = builderOf b p.content.multiple \x ->
-    lazyByteString x.content.single
+  builder = builderOf b p.content.multiple \x -> lazyByteString x.content.single
 
 -- |
 -- Delay the handling of the multiplicity of a part for the purposes
