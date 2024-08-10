@@ -162,7 +162,7 @@ singleBuilder p = PartBuilder{..}
       . encodingHeader
       . dispositionHeader
       . locationHeader
-      $ headers
+      $ p.headers
   builder = case p.encoding of
     Just Base64 ->
       foldMap ((<> "\r\n") . lazyByteString . B64L.encode) $
