@@ -33,7 +33,7 @@ import Codec.MIME
   , somePart
   , toSinglePart
   )
-import Control.Monad.Random (MonadIO, MonadRandom)
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.ByteString.Builder (Builder, byteString, toLazyByteString)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Foldable (fold)
@@ -66,6 +66,16 @@ data Mail = Mail
   }
   deriving (Generic)
 
+-- | Intended usage:
+--
+-- @
+-- let mail =
+--       blankMail [mailbox|from\@example.com|]
+--         & to [mailbox|to\@example.com|]
+--         & subject \"Example\"
+--         & body -- same as: attach @Html
+--           ...
+-- @
 blankMail :: Mailbox -> Mail
 blankMail from = Mail from [] [] [] [] []
 
@@ -86,27 +96,25 @@ data MailRenderError
   deriving (Eq, Show)
 
 renderMail ::
-  (MonadRandom m) =>
+  (MonadIO m) =>
   Mail ->
   m (Either MailRenderError BSL.ByteString)
-renderMail m =
-  if null m.mailTo
-    then pure $ Left UnspecifiedTarget
-    else case nonEmpty (sort m.mailParts) of
-      Nothing -> pure $ Left UnspecifiedContent
-      Just parts -> fmap Right $ do
-        pb <-
-          for parts (partBuilder Related) >>= \case
-            pb :| [] -> pure pb
-            pbs -> mixedParts pbs
-        pure
-          . toLazyByteString
-          . fold
-          $ [ mailboxHeaders m
-            , foldMap buildHeaders pb.headers
-            , "\n"
-            , pb.builder
-            ]
+renderMail m = case nonEmpty (sort m.mailParts) of
+  _ | null m.mailTo -> pure (Left UnspecifiedTarget)
+  Nothing -> pure (Left UnspecifiedContent)
+  Just parts -> fmap Right do
+    pb <- liftIO do
+      for parts (partBuilder Related) >>= \case
+        pb :| [] -> pure pb
+        pbs -> mixedParts pbs
+    pure
+      . toLazyByteString
+      . fold
+      $ [ mailboxHeaders m
+        , foldMap buildHeaders pb.headers
+        , "\n"
+        , pb.builder
+        ]
 
 subject :: Text -> Mail -> Mail
 subject subj m = m{mailHeaders = ("Subject", subj) : mailHeaders m}

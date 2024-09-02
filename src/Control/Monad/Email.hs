@@ -11,9 +11,7 @@ module Control.Monad.Email
 where
 
 import Control.Monad (void)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Random (MonadIO, MonadRandom)
-import Control.Monad.Reader (ReaderT (runReaderT))
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.ByteString qualified as BS (toStrict)
 import Data.Foldable (for_)
 import Network.Connection (TLSSettings)
@@ -28,7 +26,7 @@ import Network.SMTP.Command (Command (..))
 import Network.SMTP.Email
 import Network.Socket (HostName, PortNumber)
 
-data ConnectionMethod = SMTP | SMTPS | SMTPSTARTTLS deriving (Eq, Show)
+data ConnectionMethod = SMTP | SMTPS | SMTPSTARTTLS deriving (Eq, Read, Show)
 
 data SMTPSettings = SMTPSettings
   { hostname :: HostName
@@ -40,7 +38,7 @@ data SMTPSettings = SMTPSettings
   }
   deriving (Show)
 
-class (MonadRandom m, MonadIO m) => MonadSMTP m where
+class (MonadIO m) => MonadSMTP m where
   {-# MINIMAL smtpSettings #-}
   smtpSettings :: m SMTPSettings
 
@@ -59,18 +57,17 @@ class (MonadRandom m, MonadIO m) => MonadSMTP m where
           SMTP -> connectSMTP'
           SMTPS -> connectSMTP'
           SMTPSTARTTLS -> connectSMTPSTARTTLS'
-    (connection, _response) <- connect hostname port Nothing tlsSettings
-    flip runReaderT connection do
-      case liftA2 (,) username password of
-        Nothing -> pure ()
-        Just (u, p) -> void $ commandOrQuit 1 (AUTH LOGIN u p) 235
-      let box = emailByteString . mailboxEmail
-          from = box mailFrom
-          tos = box <$> mailTo <> mailCc <> mailBcc
-      renderMail m >>= \case
-        Left er -> liftIO . fail $ show er
-        Right mail -> do
-          void $ commandOrQuit 1 (MAIL from) 250
-          for_ tos \r -> commandOrQuit 1 (RCPT r) 250
-          void $ commandOrQuit 1 (DATA $ BS.toStrict mail) 250
-      closeSMTP
+    (cx, _response) <- connect hostname port Nothing tlsSettings
+    case liftA2 (,) username password of
+      Nothing -> pure ()
+      Just (u, p) -> void $ commandOrQuit cx 1 (AUTH LOGIN u p) 235
+    let box = emailByteString . mailboxEmail
+        from = box mailFrom
+        tos = box <$> mailTo <> mailCc <> mailBcc
+    renderMail m >>= \case
+      Left er -> liftIO $ fail (show er)
+      Right mail -> do
+        void $ commandOrQuit cx 1 (MAIL from) 250
+        for_ tos \r -> commandOrQuit cx 1 (RCPT r) 250
+        void $ commandOrQuit cx 1 (DATA $ BS.toStrict mail) 250
+    closeSMTP cx

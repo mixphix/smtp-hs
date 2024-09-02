@@ -13,7 +13,7 @@ dummyEmail = [mailbox|Dummy Email <dummy@email.ftw>|]
 
 testmsg :: Mail
 testmsg =
-  newmessage dummyEmail
+  blankMail dummyEmail
     & to [dummyEmail]
     & subject "Testing out package smtp-hs"
     & body
