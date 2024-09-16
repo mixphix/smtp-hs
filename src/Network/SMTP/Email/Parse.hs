@@ -625,10 +625,10 @@ messageId :: Parser Text
 messageId = string "Message-ID:" *> msgId <* crlf
 
 inReplyTo :: Parser Text
-inReplyTo = string "In-Reply-To:" *> fmap fold (Parse.many msgId) <* crlf
+inReplyTo = string "In-Reply-To:" *> fmap fold (Parse.many1 msgId) <* crlf
 
 references :: Parser Text
-references = string "References:" *> fmap fold (Parse.many msgId) <* crlf
+references = string "References:" *> fmap fold (Parse.many1 msgId) <* crlf
 
 msgId :: Parser Text
 msgId =
