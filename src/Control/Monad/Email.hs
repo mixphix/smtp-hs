@@ -39,7 +39,7 @@ data SMTPSettings = SMTPSettings
   , authType :: AuthType
   , tlsSettings :: Maybe TLSSettings
   , username :: Maybe Username
-  , password :: Maybe Password
+  , password :: Maybe Password -- ^ if using @LOGIN_OAUTH@, use the bearer token
   }
   deriving (Show)
 
