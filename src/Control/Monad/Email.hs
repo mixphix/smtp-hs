@@ -32,6 +32,7 @@ data SMTPSettings = SMTPSettings
   { hostname :: HostName
   , port :: Maybe PortNumber
   , cxmethod :: ConnectionMethod
+  , authType :: AuthType
   , tlsSettings :: Maybe TLSSettings
   , username :: Maybe Username
   , password :: Maybe Password
@@ -52,7 +53,7 @@ class (MonadIO m) => MonadSMTP m where
   -- Login to the SMTP server using the provided 'SMTPSettings',
   -- then render and send the email.
   sendMailWith :: SMTPSettings -> Mail -> m ()
-  sendMailWith SMTPSettings{..} m@Mail{..} = do
+  sendMailWith SMTPSettings{..} m@Mail{..} = liftIO do
     let connect = case cxmethod of
           SMTP -> connectSMTP'
           SMTPS -> connectSMTP'
@@ -60,12 +61,12 @@ class (MonadIO m) => MonadSMTP m where
     (cx, _response) <- connect hostname port Nothing tlsSettings
     case liftA2 (,) username password of
       Nothing -> pure ()
-      Just (u, p) -> void $ commandOrQuit cx 1 (AUTH LOGIN u p) 235
+      Just (u, p) -> void $ commandOrQuit cx 1 (AUTH authType u p) 235
     let box = emailByteString . mailboxEmail
         from = box mailFrom
         tos = box <$> mailTo <> mailCc <> mailBcc
     renderMail m >>= \case
-      Left er -> liftIO $ fail (show er)
+      Left err -> fail (show err)
       Right mail -> do
         void $ commandOrQuit cx 1 (MAIL from) 250
         for_ tos \r -> commandOrQuit cx 1 (RCPT r) 250

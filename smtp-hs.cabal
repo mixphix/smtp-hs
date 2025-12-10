@@ -1,13 +1,13 @@
 cabal-version: 3.0
 name:          smtp-hs
-version:       0.0.2
+version:       0.0.3
 homepage:      https://github.com/mixphix/smtp-hs
 bug-reports:   https://github.com/mixphix/smtp-hs/issues
 license:       BSD-3-Clause
 license-file:  LICENSE
 author:        Melanie Brown
 maintainer:    brown.m@pm.me
-copyright:     2021-2023 Melanie Brown
+copyright:     2021-2025 Melanie Brown
 category:      Network
 build-type:    Simple
 stability:     alpha
@@ -37,7 +37,6 @@ common shared
     , base           >=4.14 && <5
     , containers
     , filepath
-    , mime-mail
     , text           >=2.0.2
 
 library
