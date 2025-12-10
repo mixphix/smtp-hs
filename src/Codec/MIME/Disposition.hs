@@ -16,6 +16,7 @@ data Disposition = Disposition
   deriving (Eq)
 
 instance ToHeader Disposition where
+  toHeader :: Disposition -> Text
   toHeader Disposition{..} =
     toHeader dispType <> foldMap (("; " <>) . toHeader) dispParams
 
@@ -30,6 +31,7 @@ data DispType
 
 -- | Get the proper 'Text' value for a 'DispType'.
 instance ToHeader DispType where
+  toHeader :: DispType -> Text
   toHeader = \case
     Inline -> "inline"
     Attachment -> "attachment"
@@ -51,6 +53,7 @@ data DispParam
 
 -- | Get the proper 'Text' value from a 'DispParam'.
 instance ToHeader DispParam where
+  toHeader :: DispParam -> Text
   toHeader = \case
     Name t -> "name=\"" <> t <> "\""
     FilenameStar t -> "filename*=utf-8''" <> rfc5987 t

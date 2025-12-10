@@ -3,7 +3,7 @@ module Codec.MIME.QuotedPrintable (toQP) where
 import Codec.MIME.TextEncoding (utf8)
 import Control.Block (reduceL)
 import Data.ByteString.Builder (Builder)
-import Data.Char (ord, toUpper)
+import Data.Char (toUpper)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
@@ -31,7 +31,7 @@ qpPart char@(utf8 -> bits)
  where
   -- Lowercase hexadecimals are explicitly illegal
   -- https://www.rfc-editor.org/rfc/rfc2045#section-6.7
-  escaped = Text.pack $ toUpper <$> showHex (ord char) ""
+  escaped = Text.pack $ toUpper <$> foldMap (`showHex` "") bits
 
 squashParts :: Bool -> [QPPart] -> [QPPart]
 squashParts isTextual = \case
@@ -53,7 +53,9 @@ qpPartToBuilder isTextual column = \case
               <$> qpPartToBuilder isTextual 0 (Printable suff)
     | otherwise ->
         let (pref, suff) = Text.splitAt (75 - column) text
-         in (Text.length suff, Text.encodeUtf8Builder pref <> "=\r\n" <> Text.encodeUtf8Builder suff)
+         in ( Text.length suff
+            , Text.encodeUtf8Builder pref <> "=\r\n" <> Text.encodeUtf8Builder suff
+            )
   Quoted bits
     | column < (76 - 3 * length codes) -> (column + 3 * length codes, encoded)
     | otherwise -> (3 * length codes, "=\r\n" <> encoded)

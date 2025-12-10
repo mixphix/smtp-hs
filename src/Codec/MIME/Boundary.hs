@@ -40,7 +40,10 @@ instance Uniform Boundary where
 instance UniformRange Boundary where
   uniformRM :: (StatefulGen g m) => (Boundary, Boundary) -> g -> m Boundary
   uniformRM _ = uniformM
+  isInRange :: (Boundary, Boundary) -> Boundary -> Bool
+  isInRange _ _ = False
 
 instance Random Boundary
 instance ToHeader Boundary where
+  toHeader :: Boundary -> Text
   toHeader (Boundary b) = b

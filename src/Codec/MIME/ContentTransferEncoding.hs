@@ -1,6 +1,7 @@
 module Codec.MIME.ContentTransferEncoding (ContentTransferEncoding (..)) where
 
 import Codec.MIME.Header (ToHeader (toHeader))
+import Data.Text (Text)
 
 -- | The value of the "Content-Transfer-Encoding" header.
 data ContentTransferEncoding
@@ -13,6 +14,7 @@ data ContentTransferEncoding
 
 -- | Get the proper 'Text' value for a 'ContentTransferEncoding'.
 instance ToHeader ContentTransferEncoding where
+  toHeader :: ContentTransferEncoding -> Text
   toHeader = \case
     SevenBit -> "7bit"
     EightBit -> "8bit"

@@ -33,6 +33,7 @@ data ContentType = ContentType
   deriving (Eq, Show)
 
 instance ToHeader ContentType where
+  toHeader :: ContentType -> Text
   toHeader ContentType{..} =
     toHeader mediaType <> flip foldMap contentParams \(name, val) ->
       fold ["; ", name, "=\"", val, "\""]
@@ -73,6 +74,7 @@ data MediaType
   deriving (Eq, Ord, Show)
 
 instance ToHeader MediaType where
+  toHeader :: MediaType -> Text
   toHeader = \case
     Application ts -> "application/" <> Text.intercalate "+" ts
     Audio ts -> "audio/" <> Text.intercalate "+" ts
@@ -168,6 +170,7 @@ data Multipart
   deriving (Eq, Ord, Show)
 
 instance ToHeader Multipart where
+  toHeader :: Multipart -> Text
   toHeader = \case
     Alternative -> "alternative"
     Byteranges -> "byteranges"
