@@ -1,11 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Control.Monad.Email
-  ( ConnectionMethod (..)
-  , SMTPSettings (..)
+  ( SMTPSettings (..)
   , MonadSMTP (..)
   , HostName
   , PortNumber
+  , ConnectionMethod (..)
+  , AuthType (LOGIN, LOGIN_OAUTH)
+  , Username (..)
+  , Password
+  , mkPassword
   , module Network.SMTP.Email
   )
 where
@@ -21,7 +25,7 @@ import Network.SMTP
   , connectSMTP'
   , connectSMTPSTARTTLS'
   )
-import Network.SMTP.Auth (AuthType (..), Password, Username)
+import Network.SMTP.Auth (AuthType (..), Password, Username (..), mkPassword)
 import Network.SMTP.Command (Command (..))
 import Network.SMTP.Email
 import Network.Socket (HostName, PortNumber)

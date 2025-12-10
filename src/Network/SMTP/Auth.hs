@@ -1,6 +1,7 @@
 module Network.SMTP.Auth
   ( Username (..)
   , Password
+  , mkPassword
   , AuthType (..)
   , encodeLogin
   , encodeLoginOAuth
@@ -42,6 +43,9 @@ newtype Username = Username Text
 
 newtype Password = Password Text
   deriving (Eq)
+
+mkPassword :: Text -> Password
+mkPassword = Password
 
 instance Show Password where
   show :: Password -> String
