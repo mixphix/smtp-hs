@@ -56,8 +56,8 @@ instance ToHeader DispParam where
   toHeader :: DispParam -> Text
   toHeader = \case
     Name t -> "name=\"" <> t <> "\""
-    FilenameStar t -> "filename*=utf-8''" <> percentEncoding t
-    Filename t -> "filename=\"" <> t <> "\""
+    FilenameStar t -> "filename*=UTF-8''" <> percentEncoding t
+    Filename t -> "filename=" <> percentEncoding t
     Created t -> "creation-date=\"" <> Text.pack (iso8601Show t) <> "\""
     Modified t -> "modification-date=\"" <> Text.pack (iso8601Show t) <> "\""
     Read t -> "read-date=\"" <> Text.pack (iso8601Show t) <> "\""
