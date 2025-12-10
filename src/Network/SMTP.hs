@@ -25,7 +25,12 @@ import Network.Connection
   , connectionSetSecure
   , initConnectionContext
   )
-import Network.SMTP.Auth as Network.SMTP (AuthType (..), auth, encodeLogin)
+import Network.SMTP.Auth as Network.SMTP
+  ( AuthType (..)
+  , auth
+  , encodeLogin
+  , encodeLoginOAuth
+  )
 import Network.SMTP.Command as Network.SMTP (Command (..))
 import Network.Socket (HostName, PortNumber)
 
@@ -77,11 +82,17 @@ sendCommand cx = \case
     void $ response cx
     cputLine cx p
     rsp@(code, _) <- response cx
-    rsp <$ unless (code == 235) (liftIO $ fail "Authentication failed.")
+    rsp <$ liftIO do unless (code == 235) (fail "Authentication failed.")
+  AUTH LOGIN_OAUTH user token -> do
+    cputLine cx "AUTH XOAUTH2"
+    void $ response cx
+    cputLine cx $ encodeLoginOAuth user token
+    rsp@(code, _) <- response cx
+    rsp <$ liftIO do unless (code == 235) (fail "Authentication failed.")
   AUTH authtype user pw -> do
     cputLine cx $ "AUTH " <> B8.pack (show authtype)
     (code, msg) <- response cx
-    unless (code == 334) (liftIO $ fail "Authentication failed.")
+    liftIO do unless (code == 334) (fail "Authentication failed.")
     cputLine cx $ auth authtype (Text.decodeUtf8 msg) user pw
     response cx
   cmd -> do
