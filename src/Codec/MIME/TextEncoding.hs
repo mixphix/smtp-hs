@@ -1,4 +1,4 @@
-module Codec.MIME.TextEncoding (utf8, rfc5987, rfc2822) where
+module Codec.MIME.TextEncoding (utf8, percentEncoding, rfc2822) where
 
 import Control.Monad (liftM3)
 import Data.Bits (Bits (shiftR, (.&.)))
@@ -17,8 +17,8 @@ utf8 :: Char -> [Word8]
 utf8 = BS.unpack . Text.encodeUtf8 . Text.singleton
 
 -- | Like%20this
-rfc5987 :: Text -> Text
-rfc5987 =
+percentEncoding :: Text -> Text
+percentEncoding =
   Text.concatMap (liftM3 bool escape Text.singleton attrchar)
     . Text.filter (not . isControl)
  where

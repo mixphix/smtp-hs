@@ -2,7 +2,7 @@ module Codec.MIME.Disposition (Disposition (..), DispType (..), DispParam (..))
 where
 
 import Codec.MIME.Header (ToHeader (toHeader))
-import Codec.MIME.TextEncoding (rfc5987)
+import Codec.MIME.TextEncoding (percentEncoding)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Time.Compat (LocalTime)
@@ -56,7 +56,7 @@ instance ToHeader DispParam where
   toHeader :: DispParam -> Text
   toHeader = \case
     Name t -> "name=\"" <> t <> "\""
-    FilenameStar t -> "filename*=utf-8''" <> rfc5987 t
+    FilenameStar t -> "filename*=utf-8''" <> percentEncoding t
     Filename t -> "filename=\"" <> t <> "\""
     Created t -> "creation-date=\"" <> Text.pack (iso8601Show t) <> "\""
     Modified t -> "modification-date=\"" <> Text.pack (iso8601Show t) <> "\""
