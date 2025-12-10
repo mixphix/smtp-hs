@@ -52,7 +52,7 @@ buildMailbox Mailbox{..} =
   fold
     [ foldMap ((<> " ") . encodeEscapedUtf8) mailboxName
     , "<"
-    , byteString $ emailByteString mailboxEmail
+    , byteString (emailByteString mailboxEmail)
     , ">"
     ]
 
@@ -82,13 +82,13 @@ blankMail from = Mail from [] [] [] [] []
 mailboxHeaders :: Mail -> Builder
 mailboxHeaders Mail{..} =
   foldMap
-    (foldMap (\(str, m) -> byteString (encodeUtf8 str) <> buildMailbox m))
-    [ [("From" :: Text, mailFrom)]
-    , map ("To",) mailTo
-    , map ("Cc",) mailCc
-    , map ("Bcc",) mailBcc
+    (foldMap (\(str, m) -> byteString (encodeUtf8 str) <> buildMailbox m <> "\n"))
+    [ [("From: " :: Text, mailFrom)]
+    , map ("To: ",) mailTo
+    , map ("Cc: ",) mailCc
+    , map ("Bcc: ",) mailBcc
     ]
-    <> foldMap buildHeaders (mailHeaders <> [("MIME-Version", "1.0")])
+    <> foldMap buildHeaders ([("MIME-Version", "1.0")] <> mailHeaders)
 
 data MailRenderError
   = UnspecifiedTarget
