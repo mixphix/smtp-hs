@@ -5,7 +5,7 @@ import Data.Bits (Bits (shiftR, (.&.)))
 import Data.Bool (bool)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
-import Data.Char (isAlpha, isAscii, isControl, isDigit, ord)
+import Data.Char (isAlpha, isAscii, isControl, isDigit)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text (encodeUtf8)
@@ -34,16 +34,17 @@ percentEncoding =
 
 -- | Header name format
 rfc2822 :: Text -> ByteString
-rfc2822 = Text.foldl' (\acc c -> acc <> enc c) mempty
+rfc2822 = BS.foldl' (\acc c -> acc <> enc c) mempty . Text.encodeUtf8
  where
-  enc :: Char -> ByteString
-  enc (fromIntegral . ord -> c)
-    | c `elem` specials = esc (hex c)
+  enc :: Word8 -> ByteString
+  enc c
+    | c `elem` specials = esc c
+    | c == 32 = BS.singleton 95
     | 33 <= c && c <= 126 = BS.singleton c
-    | otherwise = esc (hex c)
+    | otherwise = esc c
    where
     esc :: Word8 -> ByteString
-    esc w = foldMap BS.singleton [61, shiftR w 4, w .&. 15]
+    esc w = foldMap BS.singleton [61, hex (shiftR w 4), hex (w .&. 15)]
 
     hex :: Word8 -> Word8
     hex w = if w < 10 then w + 48 else w + 55

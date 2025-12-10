@@ -44,8 +44,7 @@ import Codec.MIME.Disposition as MIME
   )
 import Codec.MIME.Header (ToHeader (toHeader))
 import Codec.MIME.QuotedPrintable as MIME (toQP)
-import Codec.MIME.TextEncoding as MIME (rfc2822, rfc5987, utf8)
-import Control.Block (for, reduce)
+import Codec.MIME.TextEncoding as MIME (rfc2822, utf8)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Random (MonadRandom (getRandom))
 import Data.ByteString.Base64.Lazy qualified as B64L
@@ -61,6 +60,7 @@ import Data.Ord (comparing)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text (encodeUtf8)
+import Data.Traversable (for)
 import GHC.Records (HasField (getField))
 import System.FilePath (takeBaseName, takeExtension)
 import Text.Blaze.Html (Html)
@@ -180,7 +180,7 @@ builderOf ::
   Builder
 builderOf (Boundary b) xs f =
   fold
-    [ reduce xs \x ->
+    [ flip foldMap xs \x ->
         fold
           [ foldMap byteString ["--", Text.encodeUtf8 b, "\n"]
           , foldMap buildHeaders x.headers
