@@ -1,4 +1,4 @@
-module Codec.MIME.TextEncoding (utf8, percentEncoding, rfc2822) where
+module Codec.MIME.TextEncoding (utf8, percentEncoding, encodedWord) where
 
 import Control.Monad (liftM3)
 import Data.Bits (Bits (shiftR, (.&.)))
@@ -32,9 +32,8 @@ percentEncoding =
   escape :: Char -> Text
   escape = foldMap (Text.toUpper . Text.pack . ('%' :) . (`showHex` "")) . utf8
 
--- | Header name format
-rfc2822 :: Text -> ByteString
-rfc2822 = BS.foldl' (\acc c -> acc <> enc c) mempty . Text.encodeUtf8
+encodedWord :: Text -> ByteString
+encodedWord = BS.foldl' (\acc c -> acc <> enc c) mempty . Text.encodeUtf8
  where
   enc :: Word8 -> ByteString
   enc c

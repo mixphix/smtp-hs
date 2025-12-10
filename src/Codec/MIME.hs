@@ -44,7 +44,7 @@ import Codec.MIME.Disposition as MIME
   )
 import Codec.MIME.Header (ToHeader (toHeader))
 import Codec.MIME.QuotedPrintable as MIME (toQP)
-import Codec.MIME.TextEncoding as MIME (rfc2822, utf8)
+import Codec.MIME.TextEncoding as MIME (encodedWord, utf8)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Random (MonadRandom (getRandom))
 import Data.ByteString.Base64.Lazy qualified as B64L
@@ -126,7 +126,7 @@ related parts =
     (Multiple parts)
 
 encodeEscapedUtf8 :: Text -> Builder
-encodeEscapedUtf8 t = fold ["=?utf-8?Q?", byteString $ rfc2822 t, "?="]
+encodeEscapedUtf8 t = fold ["=?utf-8?Q?", byteString $ encodedWord t, "?="]
 
 -- |
 -- Sanitize the header name and value before
