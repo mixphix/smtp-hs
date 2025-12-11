@@ -28,6 +28,7 @@ import Data.Bifunctor (Bifunctor (first))
 import Data.ByteString (ByteString)
 import Data.Char (chr)
 import Data.Foldable (fold)
+import Data.Foldable1 (fold1)
 import Data.Functor ((<&>))
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty, toList)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -165,10 +166,19 @@ blank = pure mempty
 ignore :: (Applicative f, Monoid m) => f x -> f m
 ignore = (*> blank)
 
-infix 2 ?>
+fsome :: (Stream s m t, Semigroup a) => ParsecT s u m a -> ParsecT s u m a
+fsome = fmap fold1 . Parse.some
 
-(?>) :: (Alternative f) => Bool -> a -> f a
-b ?> a = if b then pure a else empty
+fmany :: (Stream s m t, Monoid a) => ParsecT s u m a -> ParsecT s u m a
+fmany = fmap fold . Parse.many
+
+option :: (Stream s m t) => a -> ParsecT s u m a -> ParsecT s u m a
+option x = Parse.option x . Parse.try
+
+infix 2 ?
+
+(?) :: (Alternative f) => Bool -> a -> f a
+b ? a = if b then pure a else empty
 
 -- backtracking
 infixl 4 <|>
@@ -201,8 +211,8 @@ string = fmap Text.pack . Parse.string . Text.unpack
 tmany :: ParsecT s u m Char -> ParsecT s u m Text
 tmany p = Text.pack <$> Parse.many p
 
-tmany1 :: (Stream s m t) => ParsecT s u m Char -> ParsecT s u m Text
-tmany1 p = Text.pack <$> Parse.many1 p
+tsome :: (Stream s m t) => ParsecT s u m Char -> ParsecT s u m Text
+tsome p = Text.pack . toList <$> Parse.some p
 
 tatLeast :: (Stream s m t) => Word -> ParsecT s u m Char -> ParsecT s u m Text
 tatLeast n p = case n of
@@ -245,24 +255,21 @@ lf = char '\n'
 alphaNum :: Parser Char
 alphaNum = ranges [[48 .. 57], [65 .. 90], [97 .. 122]]
 
-wsp :: Parser Text
-wsp = ignore (sp <|> tab)
-
-wsp1 :: Parser Text
-wsp1 = ignore (Parse.some wsp)
+wsp :: Parser Char
+wsp = sp <|> tab
 
 -- 3.2.1
 
 quotedPair :: Parser Text
 quotedPair =
-  (string "\\" <> (tcount 1 vchar <|> wsp))
+  (string "\\" <> (tcount 1 vchar <|> tcount 1 wsp))
     <|> obsQP
 
 -- 3.2.2
 
 fws :: Parser Text
 fws =
-  ignore (Parse.many wsp <> fmap pure (tcount 1 crlf) <> Parse.many1 wsp)
+  (option "" (tmany wsp <> tcount 1 crlf) <> tsome wsp)
     <|> obsFws
 
 ctext :: Parser Char
@@ -271,35 +278,34 @@ ctext =
     <|> obsCtext
 
 ccontent :: Parser Text
-ccontent = tcount 1 ctext <|> quotedPair <|> comment
+ccontent = tcount 1 ctext <|> quotedPair <|> Parse.try comment
 
 comment :: Parser Text
 comment =
   fold
     [ string "("
-    , Text.unwords <$> Parse.many (Parse.option "" fws <> ccontent)
-    , Parse.option "" fws
+    , fmany (option "" fws <> ccontent <> option "" fws)
     , string ")"
     ]
 
 cfws :: Parser Text
 cfws =
-  ignore (Parse.many1 (Parse.option "" fws <> comment) <* Parse.option "" fws)
+  (option "" fws <> fsome comment <> option "" fws)
     <|> fws
 
 -- 3.2.3
 
 atext :: Parser Char
-atext = alphaNum <|> oneOf "!#$%&'*+/=?^_`{|}~-"
+atext = alphaNum <|> oneOf "!#$%&'*+-/=?^_`{|}~"
 
 atom :: Parser Text
-atom = Parse.option "" cfws <> tmany1 atext <> Parse.option "" cfws
+atom = option "" cfws <> tsome atext <> option "" cfws
 
 dotAtomText :: Parser Text
-dotAtomText = Text.intercalate "." <$> (tmany1 atext `Parse.sepBy1` string ".")
+dotAtomText = tsome atext <> fmany (string "." <> tsome atext)
 
 dotAtom :: Parser Text
-dotAtom = Parse.option "" cfws <> dotAtomText <> Parse.option "" cfws
+dotAtom = option "" cfws <> dotAtomText <> option "" cfws
 
 specials :: Parser Char
 specials = oneOf "()<>[]:;@\\,.\""
@@ -317,12 +323,13 @@ qcontent = tcount 1 qtext <|> quotedPair
 quotedString :: Parser Text
 quotedString =
   fold
-    [ Parse.option "" cfws
+    [ option "" cfws
     , string "\""
-    , Text.unwords <$> Parse.many (Parse.option "" fws *> qcontent)
-    , Parse.option "" fws
+    , option "" fws
+    , fold <$> fmany qcontent `Parse.sepBy` fws
+    , option "" fws
     , string "\""
-    , Parse.option "" cfws
+    , option "" cfws
     ]
 
 -- 3.2.5
@@ -335,7 +342,7 @@ phrase = Parse.some word <|> obsPhrase
 
 unstructured :: Parser Text
 unstructured =
-  fmap fold (Parse.many (Parse.option "" fws <> tcount 1 vchar) <> Parse.many wsp)
+  (fmany (option "" fws <> tcount 1 vchar) <> tmany wsp)
     <|> obsUnstruct
 
 -- 3.3
@@ -343,14 +350,14 @@ unstructured =
 dateTime :: Parser Text
 dateTime =
   fold
-    [ Parse.option "" (dayOfWeek <> string ",")
+    [ option "" (dayOfWeek <> string ",")
     , date
     , time
-    , Parse.option "" cfws
+    , option "" cfws
     ]
 
 dayOfWeek :: Parser Text
-dayOfWeek = (Parse.option "" fws <> dayName) <|> obsDayOfWeek
+dayOfWeek = (option "" fws <> dayName) <|> obsDayOfWeek
 
 dayName :: Parser Text
 dayName = choice $ map string ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -359,7 +366,7 @@ date :: Parser Text
 date = fold [day, month, year]
 
 day :: Parser Text
-day = fold [Parse.option "" fws, tbtwn 1 2 digit, fws] <|> obsDay
+day = fold [option "" fws, tbtwn 1 2 digit, fws] <|> obsDay
 
 month :: Parser Text
 month =
@@ -392,7 +399,7 @@ timeOfDay =
     [ hour
     , string ":"
     , minute
-    , Parse.option "" (string ":" <> second)
+    , option "" (string ":" <> second)
     ]
 
 hour :: Parser Text
@@ -424,11 +431,11 @@ nameAddr =
 
 angleAddr :: Parser Email
 angleAddr =
-  ( Parse.option "" cfws
+  ( option "" cfws
       *> char '<'
       *> addrSpec'
       <* char '>'
-      <* Parse.option "" cfws
+      <* option "" cfws
   )
     <|> obsAngleAddr
 
@@ -436,9 +443,9 @@ group :: Parser [Mailbox]
 group =
   displayName
     *> char ':'
-    *> Parse.option [] groupList
+    *> option [] groupList
     <* char ';'
-    <* Parse.option "" cfws
+    <* option "" cfws
 
 displayName :: Parser (NonEmpty Text)
 displayName = phrase
@@ -487,44 +494,38 @@ domain = domainname <|> domainliteral <|> obsDomain
 domainname :: Parser Text
 domainname = do
   dom <- Text.intercalate "." <$> domainlabel `sepEndBy1` string "."
-
-  Text.length dom <= 253 ?> dom
+  Text.length dom <= 253 ? dom
 
 domainlabel :: Parser Text
 domainlabel = do
   content <-
-    Parse.option "" cfws
+    option "" cfws
       *> liftA2 (:|) alphaNum (Parse.many (alphaNum <|> char '-'))
-      <* Parse.option "" cfws
-
-  (length content <= 63 && NonEmpty.last content /= '-')
-    ?> Text.pack (toList content)
+      <* option "" cfws
+  length content <= 63
+    && NonEmpty.last content /= '-' ? Text.pack (toList content)
 
 domainliteral :: Parser Text
 domainliteral =
   fmap fold $
-    Parse.option "" cfws
+    option "" cfws
       *> char '['
-      *> Parse.many (Parse.option "" fws *> dtext)
-      <* Parse.option "" fws
+      *> Parse.many (option "" fws <> dtext)
+      <* option "" fws
       <* char ']'
-      <* Parse.option "" cfws
+      <* option "" cfws
 
 dtext :: Parser Text
 dtext =
   tcount 1 (ranges [[33 .. 90], [94 .. 126]])
     <|> obsDtext
 
-obsPhrase :: Parser (NonEmpty Text)
-obsPhrase =
-  (:|) <$> word <*> Parse.many (word <|> string "." <|> Parse.option "" cfws)
-
 -- 3.5
 
 message :: Parser Text
 message =
-  (fields <|> obsFields)
-    <> Parse.option "" (tcount 1 crlf <> body)
+  (fields <|> fmap Text.unlines obsFields)
+    <> option "" (tcount 1 crlf <> body)
 
 body :: Parser Text
 body =
@@ -622,28 +623,27 @@ bcc = string "Bcc:" *> (addressList <|> ignore cfws) <* crlf
 -- 3.6.4
 
 messageId :: Parser Text
-messageId = string "Message-ID:" *> msgId <* crlf
+messageId = string "Message-ID:" <> msgId <> tcount 1 crlf
 
 inReplyTo :: Parser Text
-inReplyTo = string "In-Reply-To:" *> fmap fold (Parse.many1 msgId) <* crlf
+inReplyTo = string "In-Reply-To:" <> fmap fold (Parse.many1 msgId) <> tcount 1 crlf
 
 references :: Parser Text
-references = string "References:" *> fmap fold (Parse.many1 msgId) <* crlf
+references = string "References:" <> fmap fold (Parse.many1 msgId) <> tcount 1 crlf
 
 msgId :: Parser Text
 msgId =
-  Parse.optional cfws
-    *> fmap
-      fold
-      ( sequenceA
-          [ string "<"
-          , idLeft
-          , string "@"
-          , idRight
-          , string ">"
-          ]
-      )
-    <* Parse.optional cfws
+  option "" cfws
+    <> ( fold
+           <$> sequenceA
+             [ string "<"
+             , idLeft
+             , string "@"
+             , idRight
+             , string ">"
+             ]
+       )
+    <> option "" cfws
 
 idLeft :: Parser Text
 idLeft = dotAtomText <|> obsIdLeft
@@ -725,7 +725,7 @@ optionalField :: Parser Text
 optionalField = (fieldName <> string ":" <> unstructured) <* crlf
 
 fieldName :: Parser Text
-fieldName = tmany1 ftext
+fieldName = tsome ftext
 
 ftext :: Parser Char
 ftext = ranges [[33 .. 57], [59 .. 126]]
@@ -745,26 +745,85 @@ obsUtext = nul <|> obsNoWsCtl <|> vchar
 obsQP :: Parser Text
 obsQP = string "\\" <> tcount 1 (choice [nul, obsNoWsCtl, lf, cr])
 
+obsBody :: Parser Text
+obsBody =
+  Text.pack . fold
+    <$> Parse.many
+      ( ( Parse.many lf
+            *> Parse.many cr
+            *> Parse.many ((nul <|> text) <* Parse.many lf <* Parse.many cr)
+        )
+          <|> fmap pure crlf
+      )
+
 obsUnstruct :: Parser Text
 obsUnstruct =
   fmap fold <$> Parse.many $
     (tmany lf *> tmany cr *> tmany (obsUtext <* Parse.many lf <* Parse.many cr))
       <|> ("" <$ fws)
 
+obsPhrase :: Parser (NonEmpty Text)
+obsPhrase = (:|) <$> word <*> Parse.many (word <|> string "." <|> cfws)
+
+obsPhraseList :: Parser [Text]
+obsPhraseList =
+  option [] (fmap toList phrase <|> fmap pure cfws)
+    <> Parse.many
+      ( fmap fold . (:)
+          <$> string ","
+          <*> option [] (fmap toList phrase <|> fmap pure cfws)
+      )
+
 -- 4.2
 
 obsFws :: Parser Text
-obsFws = ignore (Parse.many1 wsp *> Parse.many (crlf *> Parse.many1 wsp))
+obsFws = fsome (tcount 1 wsp) <> fmany (tcount 1 crlf <> fsome (tcount 1 wsp))
+
+-- 4.3
+
+obsDayOfWeek :: Parser Text
+obsDayOfWeek = option "" cfws <> dayName <> option "" cfws
+
+obsDay :: Parser Text
+obsDay = option "" cfws <> tbtwn 1 2 digit <> option "" cfws
+
+obsYear :: Parser Text
+obsYear = option "" cfws <> tatLeast 2 digit <> option "" cfws
+
+obsHour :: Parser Text
+obsHour = option "" cfws <> tcount 2 digit <> option "" cfws
+
+obsMinute :: Parser Text
+obsMinute = option "" cfws <> tcount 2 digit <> option "" cfws
+
+obsSecond :: Parser Text
+obsSecond = option "" cfws <> tcount 2 digit <> option "" cfws
+
+obsZone :: Parser Text
+obsZone =
+  choice
+    [ string "UT"
+    , string "GMT"
+    , string "EST"
+    , string "EDT"
+    , string "CST"
+    , string "CDT"
+    , string "MST"
+    , string "MDT"
+    , string "PST"
+    , string "PDT"
+    , tcount 1 $ ranges [[65 .. 73], [75 .. 90], [97 .. 105], [107 .. 122]]
+    ]
 
 -- 4.4
 
 obsAngleAddr :: Parser Email
 obsAngleAddr =
-  Parse.option "" cfws
+  option "" cfws
     *> char '<'
     *> (obsRoute {- should be ignored -} *> addrSpec')
     <* char '>'
-    <* Parse.option "" cfws
+    <* option "" cfws
 
 obsRoute :: Parser [Text]
 obsRoute = obsDomainList <* char ':'
@@ -784,7 +843,7 @@ obsDomainList = do
 
 obsMboxList :: Parser (NonEmpty Mailbox)
 obsMboxList = do
-  void . Parse.many $ Parse.option "" cfws *> char ','
+  void . Parse.many $ option "" cfws *> char ','
   mb <- mailbox_
   mbs <-
     Parse.many $
@@ -793,7 +852,7 @@ obsMboxList = do
 
 obsAddrList :: Parser [Mailbox]
 obsAddrList = do
-  void . Parse.many $ Parse.option "" cfws *> char ','
+  void . Parse.many $ option "" cfws *> char ','
   mb <- address
   mbs <-
     Parse.many $
@@ -802,7 +861,7 @@ obsAddrList = do
 
 obsGroupList :: Parser ()
 obsGroupList = void do
-  Parse.many1 (Parse.option "" cfws *> char ',') *> Parse.option "" cfws
+  Parse.many1 (option "" cfws *> char ',') *> option "" cfws
 
 obsLocalPart :: Parser Text
 obsLocalPart =
@@ -819,35 +878,274 @@ obsDomain =
 obsDtext :: Parser Text
 obsDtext = tcount 1 obsNoWsCtl <|> quotedPair
 
-obsFields :: Parser Text
-obsFields = undefined
+-- 4.5
 
-obsBody :: Parser Text
-obsBody = undefined
+obsFields :: Parser [Text]
+obsFields =
+  Parse.many $
+    choice
+      [ obsReturn
+      , obsReceived
+      , obsOrigDate
+      , obsFrom
+      , obsSender
+      , obsReplyTo
+      , obsTo
+      , obsCc
+      , obsBcc
+      , obsMessageId
+      , obsInReplyTo
+      , obsReferences
+      , obsSubject
+      , obsComments
+      , obsKeywords
+      , obsResentDate
+      , obsResentFrom
+      , obsResentSend
+      , obsResentRply
+      , obsResentTo
+      , obsResentCc
+      , obsResentBcc
+      , obsResentMid
+      , obsOptional
+      ]
 
-obsDayOfWeek :: Parser Text
-obsDayOfWeek = undefined
+-- 4.5.1
 
-obsDay :: Parser Text
-obsDay = undefined
+obsOrigDate :: Parser Text
+obsOrigDate =
+  string "Date"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> dateTime
+    <> tcount 1 crlf
 
-obsYear :: Parser Text
-obsYear = undefined
+-- 4.5.2
 
-obsHour :: Parser Text
-obsHour = undefined
+obsFrom :: Parser Text
+obsFrom =
+  string "From"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( mailboxList <&> \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
 
-obsMinute :: Parser Text
-obsMinute = undefined
+obsSender :: Parser Text
+obsSender =
+  string "Sender"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> (mailbox_ <&> \m -> mailboxText m)
+    <> tcount 1 crlf
 
-obsSecond :: Parser Text
-obsSecond = undefined
+obsReplyTo :: Parser Text
+obsReplyTo =
+  string "Reply-To"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
 
-obsZone :: Parser Text
-obsZone = undefined
+obsTo :: Parser Text
+obsTo =
+  string "To"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
+
+obsCc :: Parser Text
+obsCc =
+  string "Cc"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
+
+obsBcc :: Parser Text
+obsBcc =
+  string "Bcc"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+             mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+         )
+           <|> ( fmap fold (Parse.many (option "" cfws <> string ","))
+                   <> option "" cfws
+               )
+       )
+    <> tcount 1 crlf
+
+-- 4.5.4
+
+obsMessageId :: Parser Text
+obsMessageId =
+  string "Message-ID"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> msgId
+    <> tcount 1 crlf
+
+obsInReplyTo :: Parser Text
+obsInReplyTo =
+  string "In-Reply-To"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> fmap fold (Parse.many (fmap fold phrase <|> msgId))
+    <> tcount 1 crlf
+
+obsReferences :: Parser Text
+obsReferences =
+  string "References"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> fmap fold (Parse.many (fmap fold phrase <|> msgId))
+    <> tcount 1 crlf
 
 obsIdLeft :: Parser Text
-obsIdLeft = undefined
+obsIdLeft = localpart
 
 obsIdRight :: Parser Text
-obsIdRight = undefined
+obsIdRight = domain
+
+-- 4.5.5
+
+obsSubject :: Parser Text
+obsSubject =
+  string "Subject"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> unstructured
+    <> tcount 1 crlf
+
+obsComments :: Parser Text
+obsComments =
+  string "Comments"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> unstructured
+    <> tcount 1 crlf
+
+obsKeywords :: Parser Text
+obsKeywords =
+  string "Keywords"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> fmap fold obsPhraseList
+    <> tcount 1 crlf
+
+-- 4.5.6
+
+obsResentFrom :: Parser Text
+obsResentFrom =
+  string "Resent-From"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( mailboxList <&> \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
+
+obsResentSend :: Parser Text
+obsResentSend =
+  string "Resent-Sender"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> (mailbox_ <&> \m -> mailboxText m)
+    <> tcount 1 crlf
+
+obsResentDate :: Parser Text
+obsResentDate =
+  string "Resent-Date"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> dateTime
+    <> tcount 1 crlf
+
+obsResentTo :: Parser Text
+obsResentTo =
+  string "Resent-To"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
+
+obsResentCc :: Parser Text
+obsResentCc =
+  string "Resent-Cc"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
+
+obsResentBcc :: Parser Text
+obsResentBcc =
+  string "Resent-Bcc"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+             mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+         )
+           <|> ( fmap fold (Parse.many (option "" cfws <> string ","))
+                   <> option "" cfws
+               )
+       )
+    <> tcount 1 crlf
+
+obsResentMid :: Parser Text
+obsResentMid =
+  string "Resent-Message-ID"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> msgId
+    <> tcount 1 crlf
+
+obsResentRply :: Parser Text
+obsResentRply =
+  string "Resent-Reply-To"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> ( addressList <&> \x -> flip (maybe "") (nonEmpty x) \(m :| ms) ->
+           mailboxText m <> foldMap ((", " <>) . mailboxText) ms
+       )
+    <> tcount 1 crlf
+
+-- 4.5.7
+
+obsReturn :: Parser Text
+obsReturn =
+  string "Return-Path"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> path
+    <> tcount 1 crlf
+
+obsReceived :: Parser Text
+obsReceived =
+  string "Received"
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> fmap fold (Parse.many receivedToken)
+    <> tcount 1 crlf
+
+-- 4.5.8
+
+obsOptional :: Parser Text
+obsOptional =
+  fieldName
+    <> ignore (Parse.many wsp)
+    <> string ":"
+    <> unstructured
+    <> tcount 1 crlf
